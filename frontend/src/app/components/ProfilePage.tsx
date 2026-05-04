@@ -130,7 +130,7 @@ export function ProfilePage() {
     department: "Computer Engineering",
     year: "3rd Year",
     university: "Istanbul Arel University",
-    memberSince: "Eylül 2025",
+    memberSince: "September 2025",
     rank: mockUserStats.rank,
     coins: mockUserStats.campusCoins,
     initials: "SC",
@@ -212,7 +212,7 @@ export function ProfilePage() {
                     {user.department} · {user.year}
                   </div>
                   <div className="text-[14px] text-slate-500 dark:text-slate-500 mt-1">{user.university}</div>
-                  <div className="text-[11px] text-slate-400 dark:text-slate-600 mt-1 uppercase tracking-wider font-semibold">Üye: {user.memberSince}</div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-600 mt-1 uppercase tracking-wider font-semibold">Member Since: {user.memberSince}</div>
                 </div>
               </div>
 
