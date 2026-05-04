@@ -1,56 +1,94 @@
-import { CheckCircle, Clock, FileText } from 'lucide-react';
-import { recentDocuments } from '../mockData';
+import { useState, useEffect } from 'react';
+import { Clock, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
+import { DocumentService } from '../services/DocumentService';
+import { AuthService } from '../services/AuthService';
+import { NoteDocument } from '../types';
 
 interface StatusTrackerProps {
   isLoading?: boolean;
 }
 
-export function StatusTracker({ isLoading }: StatusTrackerProps) {
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6 transition-colors">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-slate-900 dark:text-white">Recent Uploads</h3>
-        <span className="text-xs text-slate-500 dark:text-slate-400">Last 7 days</span>
-      </div>
+export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) {
+  const [documents, setDocuments] = useState<NoteDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const currentUser = AuthService.getCurrentUser();
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 animate-pulse">
-              <div className="w-4 h-4 bg-slate-200 dark:bg-slate-700 rounded mt-0.5"></div>
-              <div className="flex-1 min-w-0">
-                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-1.5"></div>
-                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/3"></div>
-              </div>
-              <div className="w-16 h-6 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-            </div>
-          ))}
+  const fetchMyDocs = async () => {
+    if (!currentUser) return;
+    try {
+      const docs = await DocumentService.getUserDocuments();
+      setDocuments(docs);
+    } catch (err) {
+      console.error("StatusTracker Fetch Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMyDocs();
+  }, [currentUser?.email]);
+
+  // Expose refresh to window for easy calling from App.tsx
+  useEffect(() => {
+    (window as any).refreshStatusTracker = fetchMyDocs;
+  }, []);
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 transition-all shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-slate-900 dark:text-white font-bold tracking-tight">Submission Status</h3>
+        <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 px-2 py-1 rounded-full font-black uppercase">
+          Live Tracking
+        </span>
+      </div>
+      
+      {(loading || parentLoading) && documents.length === 0 ? (
+        <div className="animate-pulse space-y-4">
+          {[1, 2].map(i => <div key={i} className="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl" />)}
+        </div>
+      ) : documents.length === 0 ? (
+        <div className="text-center py-10">
+          <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-3">
+            <FileText className="w-6 h-6 text-slate-300 dark:text-slate-700" />
+          </div>
+          <p className="text-xs text-slate-500 font-medium italic">No active submissions</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {recentDocuments.map((doc, index) => (
-            <div
-              key={index}
-              className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
-            >
-              <div className="flex-shrink-0 mt-0.5">
-                <FileText className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+          {documents.map((doc) => (
+            <div key={doc.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30 transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm group-hover:scale-110 transition-transform">
+                  <FileText className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-900 dark:text-white font-bold truncate max-w-[150px]">
+                    {doc.title}
+                  </p>
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-tighter">
+                    {doc.courseCode}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-900 dark:text-white truncate">{doc.title}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{doc.date}</p>
-              </div>
-              <div className="flex-shrink-0">
-                {doc.status === 'published' ? (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 dark:bg-emerald-500/10 rounded-full">
-                    <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-xs text-emerald-700 dark:text-emerald-400">Published</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 dark:bg-amber-500/10 rounded-full">
-                    <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                    <span className="text-xs text-amber-700 dark:text-amber-400">Draft</span>
-                  </div>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5">
+                  {doc.status === 'PUBLISHED' ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  ) : doc.status === 'REJECTED' ? (
+                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+                  )}
+                  <span className={`text-[11px] font-black uppercase ${
+                    doc.status === 'PUBLISHED' ? 'text-emerald-600' : 
+                    doc.status === 'REJECTED' ? 'text-red-600' : 'text-amber-600'
+                  }`}>
+                    {doc.status || 'DRAFT'}
+                  </span>
+                </div>
+                {doc.status === 'PUBLISHED' && (
+                  <span className="text-[9px] font-bold text-slate-400">+10 CampusCoins</span>
                 )}
               </div>
             </div>

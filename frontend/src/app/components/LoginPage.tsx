@@ -1,16 +1,32 @@
 import { useState } from 'react';
-import { Shield, Mail, Lock, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Shield, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { AuthService } from '../services/AuthService';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login - just navigate to dashboard
-    navigate('/');
+    setError('');
+    setLoading(true);
+
+    const response = await AuthService.login(email, password);
+    setLoading(false);
+
+    if (response.success) {
+      if (response.user?.role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
+    } else {
+      setError(response.message || 'Login failed');
+    }
   };
 
   return (
@@ -21,14 +37,21 @@ export function LoginPage() {
             <Shield className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">CampusNote Pro</h1>
-          <p className="text-slate-600 dark:text-slate-400">Academic Repository for Arel University</p>
+          <p className="text-slate-600 dark:text-slate-400">Welcome back! Please sign in.</p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-8">
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Institutional Email
+                Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -41,9 +64,6 @@ export function LoginPage() {
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 transition-all dark:text-white"
                 />
               </div>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 italic">
-                Requires an @arel.edu.tr institutional email
-              </p>
             </div>
 
             <div>
@@ -51,9 +71,6 @@ export function LoginPage() {
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Password
                 </label>
-                <button type="button" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
-                  Forgot Password?
-                </button>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -70,24 +87,21 @@ export function LoginPage() {
 
             <button
               type="submit"
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+              disabled={loading}
+              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-70 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
             >
-              Sign In
-              <ArrowRight className="w-5 h-5" />
+              {loading ? 'Signing In...' : 'Sign In'}
+              {!loading && <ArrowRight className="w-5 h-5" />}
             </button>
           </form>
 
           <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800 text-center text-sm">
             <span className="text-slate-600 dark:text-slate-400">Don't have an account? </span>
-            <button className="font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+            <Link to="/register" className="font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
               Create an account
-            </button>
+            </Link>
           </div>
         </div>
-        
-        <p className="mt-8 text-center text-xs text-slate-500 dark:text-slate-500">
-          © 2026 CampusNote Pro. All rights reserved.
-        </p>
       </div>
     </div>
   );

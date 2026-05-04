@@ -1,5 +1,7 @@
+import React, { useState, useEffect } from 'react';
 import { Home, BookOpen, TrendingUp, Trophy, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { AuthService } from '../services/AuthService';
 
 interface SidebarProps {
   activeItem?: string;
@@ -13,8 +15,18 @@ export function Sidebar({ activeItem = 'Dashboard', onProfileClick }: SidebarPro
     { icon: BookOpen, label: 'My Faculty', id: 'MyFaculty', path: '#' },
     { icon: TrendingUp, label: 'Top Documents', id: 'TopDocuments', path: '#' },
     { icon: Trophy, label: 'Leaderboard', id: 'Leaderboard', path: '#' },
-    { icon: Shield, label: 'Admin', id: 'Admin', path: '/admin' },
+    ...(AuthService.isAdmin() ? [{ icon: Shield, label: 'Admin Panel', id: 'Admin', path: '/admin' }] : []),
   ];
+
+  const [currentUser, setCurrentUser] = useState(AuthService.getCurrentUser());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setCurrentUser(AuthService.getCurrentUser());
+    };
+    window.addEventListener('user-data-updated', handleUpdate);
+    return () => window.removeEventListener('user-data-updated', handleUpdate);
+  }, []);
 
   return (
     <div className="w-64 bg-slate-900 h-screen fixed left-0 top-0 flex-col p-6 hidden lg:flex">
@@ -54,10 +66,10 @@ export function Sidebar({ activeItem = 'Dashboard', onProfileClick }: SidebarPro
           className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition-colors mb-4"
         >
           <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-sm">SC</span>
+            <span className="text-white text-sm">{currentUser ? currentUser.email.charAt(0).toUpperCase() : 'G'}</span>
           </div>
           <div className="flex-1 text-left">
-            <p className="text-sm text-white">Sarah Chen</p>
+            <p className="text-sm text-white">{currentUser?.email.split('@')[0] || 'Guest'}</p>
             <p className="text-xs text-slate-400">View Profile</p>
           </div>
         </button>

@@ -1,15 +1,17 @@
-import { CheckCircle, Download, Eye, ThumbsUp, Clock, Sparkles, FileText, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle, Download, Eye, ThumbsUp, Clock, Sparkles, FileText, Lock, X } from 'lucide-react';
 
 interface DocumentCardProps {
   title: string;
   courseCode: string;
   uploader: string;
-  status: 'published' | 'draft' | 'under-review';
+  status: 'DRAFT' | 'PUBLISHED' | 'REJECTED';
   aiScore?: number;
   downloads: number;
   views: number;
   likes: number;
   reviewStatus?: string;
+  filePath?: string;
 }
 
 export function DocumentCard({
@@ -22,26 +24,28 @@ export function DocumentCard({
   views,
   likes,
   reviewStatus,
+  filePath,
 }: DocumentCardProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
   
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'published':
+      case 'PUBLISHED':
         return {
           label: 'Published',
           classes: 'text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400',
           icon: CheckCircle
         };
-      case 'draft':
+      case 'DRAFT':
         return {
           label: 'Draft',
           classes: 'text-slate-600 bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400',
           icon: Lock
         };
-      case 'under-review':
+      case 'REJECTED':
         return {
-          label: 'Under Review',
-          classes: 'text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400',
+          label: 'Rejected',
+          classes: 'text-red-700 bg-red-50 dark:bg-red-500/10 dark:text-red-400',
           icon: Clock
         };
       default:
@@ -51,6 +55,10 @@ export function DocumentCard({
 
   const statusConfig = getStatusConfig(status);
   const StatusIcon = statusConfig.icon;
+  const fileLower = (filePath || '').toLowerCase();
+  const isImage = /\.(png|jpe?g|webp|gif)$/.test(fileLower);
+  const isPdf = fileLower.endsWith('.pdf');
+  const canPreview = Boolean(filePath && (isImage || isPdf || filePath.startsWith('http')));
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:shadow-lg transition-all group flex flex-col h-full">
@@ -68,18 +76,32 @@ export function DocumentCard({
       {/* Document Thumbnail Preview */}
       <div className="relative aspect-[4/3] mb-4 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 group-hover:border-indigo-300 dark:group-hover:border-indigo-900 transition-colors">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 flex items-center justify-center">
-          <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600" />
+          {isImage && filePath ? (
+            <img src={filePath} alt={title} className="w-full h-full object-cover" />
+          ) : (
+            <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600" />
+          )}
         </div>
         <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/20 to-transparent">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
-            <span className="text-[10px] font-medium text-white uppercase tracking-wider">First Page Preview</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+              <span className="text-[10px] font-medium text-white uppercase tracking-wider">First Page Preview</span>
+            </div>
+            {canPreview && (
+              <button
+                onClick={() => setPreviewOpen(true)}
+                className="text-[10px] font-semibold text-white bg-black/35 px-2 py-1 rounded"
+              >
+                Preview
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       <div className="space-y-4 flex-1 flex flex-col">
-        {status === 'published' && aiScore !== undefined && (
+        {status === 'PUBLISHED' && aiScore !== undefined && (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-lg">
               <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -97,18 +119,18 @@ export function DocumentCard({
           </div>
         )}
 
-        {status === 'under-review' && (
+        {status === 'REJECTED' && (
           <div className="px-3 py-2 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-lg">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
               <span className="text-sm text-amber-700 dark:text-amber-400 italic">
-                {reviewStatus || 'Analyzing content...'}
+                {reviewStatus || 'Rejected by manual review'}
               </span>
             </div>
           </div>
         )}
 
-        {status === 'draft' && (
+        {status === 'DRAFT' && (
           <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
              <span className="text-sm text-slate-500 italic">Not yet submitted for review</span>
           </div>
@@ -131,13 +153,35 @@ export function DocumentCard({
           </div>
           
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[80px]">{uploader}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[80px]">{uploader || 'Anonymous'}</span>
             <div className="w-6 h-6 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center border border-white dark:border-slate-700">
-              <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold">{uploader.charAt(0)}</span>
+              <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold">{(uploader || 'A').charAt(0)}</span>
             </div>
           </div>
         </div>
       </div>
+
+      {previewOpen && filePath && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-5xl h-[85vh] bg-white dark:bg-slate-900 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setPreviewOpen(false)}
+              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/50 text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            {isPdf ? (
+              <iframe src={filePath} className="w-full h-full" title={title} />
+            ) : isImage ? (
+              <img src={filePath} alt={title} className="w-full h-full object-contain bg-slate-950" />
+            ) : (
+              <a href={filePath} target="_blank" rel="noreferrer" className="block p-8 text-indigo-600">
+                Open file in new tab
+              </a>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

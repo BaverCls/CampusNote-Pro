@@ -2,13 +2,18 @@ export interface NoteDocument {
   id: number;
   title: string;
   courseCode: string;
-  uploader: string;
-  status: 'published' | 'draft' | 'under-review';
+  faculty?: string;
+  uploader?: string;
+  uploaderName?: string;
+  status: 'DRAFT' | 'PUBLISHED' | 'REJECTED';
   aiScore?: number;
+  score?: number;
   downloads: number;
   views: number;
   likes: number;
   reviewStatus?: string;
+  uploadDate?: string;
+  filePath?: string;
 }
 
 export interface UploadedDocument {

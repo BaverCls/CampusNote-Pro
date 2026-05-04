@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Filter, SortAsc } from 'lucide-react';
+import { Plus, Filter, SortAsc, Search } from 'lucide-react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -11,8 +11,12 @@ import { ProfilePage } from './components/ProfilePage';
 import { MobileNav } from './components/MobileNav';
 import { AdminPanel } from './components/AdminPanel';
 import { LoginPage } from './components/LoginPage';
-import { fetchDocuments, faculties } from './mockData';
+import { RegisterPage } from './components/RegisterPage';
+import { faculties } from './constants';
 import { NoteDocument } from './types';
+import { AuthService } from './services/AuthService';
+import { DocumentService } from './services/DocumentService';
+import { Navigate } from 'react-router-dom';
 
 function DocumentCardSkeleton() {
   return (
@@ -49,15 +53,45 @@ function Dashboard() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [documents, setDocuments] = useState<NoteDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [facultyFilter, setFacultyFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'latest' | 'downloads' | 'score'>('latest');
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const currentUser = AuthService.getCurrentUser();
+
+  const fetchFeed = () => {
     setIsLoading(true);
-    fetchDocuments().then((data) => {
-      setDocuments(data);
-      setIsLoading(false);
+    DocumentService.getFeed()
+      .then((data) => {
+        setDocuments(data);
+      })
+      .catch((err) => console.error("Feed error:", err))
+      .finally(() => {
+        setIsLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchFeed();
+    AuthService.refreshUser(); // Sync coins and profile data from DB
+  }, [currentUser?.id, currentUser?.email, navigate]);
+
+  const filteredDocuments = documents
+    .filter((doc) => {
+      const search = searchQuery.trim().toLowerCase();
+      const bySearch = !search ||
+        doc.title.toLowerCase().includes(search) ||
+        doc.courseCode.toLowerCase().includes(search) ||
+        (doc.uploaderName || 'Anonymous').toLowerCase().includes(search);
+      const byFaculty = !facultyFilter || doc.faculty === facultyFilter;
+      return bySearch && byFaculty;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'downloads') return (b.downloads || 0) - (a.downloads || 0);
+      if (sortBy === 'score') return (b.score || 0) - (a.score || 0);
+      return (new Date(b.uploadDate || 0).getTime()) - (new Date(a.uploadDate || 0).getTime());
     });
-  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
@@ -80,7 +114,9 @@ function Dashboard() {
         <div className="mx-auto p-4 lg:p-8" style={{ maxWidth: "clamp(900px, 85%, 1400px)" }}>
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 lg:mb-8">
             <div>
-              <h2 className="text-slate-900 dark:text-white mb-2">Welcome back, Sarah</h2>
+              <h2 className="text-slate-900 dark:text-white mb-2">
+                Welcome back, {currentUser?.fullName || currentUser?.email.split('@')[0] || 'Student'}
+              </h2>
               <p className="text-slate-600 dark:text-slate-400 text-sm lg:text-base">
                 Discover and share academic resources with your community
               </p>
@@ -106,14 +142,27 @@ function Dashboard() {
 
           {/* Filter & Sort Action Bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
-            <div className="flex items-center gap-4 w-full sm:w-auto">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search title, course, uploader..."
+                  className="w-full pl-10 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                />
+              </div>
               <div className="flex items-center gap-2 text-slate-900 dark:text-white font-medium">
                 <Filter className="w-4 h-4 text-indigo-600" />
                 <span>Filter by:</span>
               </div>
-              <select className="flex-1 sm:flex-none px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+              <select
+                value={facultyFilter}
+                onChange={(e) => setFacultyFilter(e.target.value)}
+                className="flex-1 sm:flex-none px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              >
                 <option value="">All Faculties</option>
-                {faculties.map(f => <option key={f} value={f}>{f}</option>)}
+                {faculties.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
               </select>
             </div>
 
@@ -122,7 +171,11 @@ function Dashboard() {
                 <SortAsc className="w-4 h-4 text-indigo-600" />
                 <span>Sort by:</span>
               </div>
-              <select className="flex-1 sm:flex-none px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'latest' | 'downloads' | 'score')}
+                className="flex-1 sm:flex-none px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              >
                 <option value="latest">Latest</option>
                 <option value="downloads">Most Downloaded</option>
                 <option value="score">Highest Score</option>
@@ -142,8 +195,8 @@ function Dashboard() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 lg:gap-6">
-              {documents.map((doc) => (
-                <DocumentCard key={doc.id} {...doc} />
+              {filteredDocuments.map((doc) => (
+                <DocumentCard key={doc.id} {...doc} uploader={doc.uploaderName || doc.uploader || 'Anonymous'} />
               ))}
             </div>
           )}
@@ -153,6 +206,7 @@ function Dashboard() {
       <UploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
+        onSuccess={fetchFeed}
       />
     </div>
   );
@@ -162,14 +216,26 @@ function ProfileWrapper() {
   return <ProfilePage />;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  if (!AuthService.isAdmin()) {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="/profile" element={<ProfileWrapper />} />
-        <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/admin" element={
+          <AdminRoute>
+            <AdminPanel />
+          </AdminRoute>
+        } />
       </Routes>
     </Router>
   );

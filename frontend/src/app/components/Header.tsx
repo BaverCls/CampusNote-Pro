@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Bell, Coins, Award, ChevronDown, User, Settings, LogOut, Menu, Moon, Sun } from 'lucide-react';
+import { AuthService } from '../services/AuthService';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   onProfileClick?: () => void;
@@ -9,12 +11,21 @@ interface HeaderProps {
 export function Header({ onProfileClick, onMobileMenuClick }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState(AuthService.getCurrentUser());
 
   useEffect(() => {
+    const handleUpdate = () => {
+      setCurrentUser(AuthService.getCurrentUser());
+    };
+    window.addEventListener('user-data-updated', handleUpdate);
+
     // Sayfa ilk yüklendiğinde mevcut temayı kontrol et
     if (document.documentElement.classList.contains('dark')) {
       setIsDark(true);
     }
+    
+    return () => window.removeEventListener('user-data-updated', handleUpdate);
   }, []);
 
   const toggleTheme = () => {
@@ -66,14 +77,18 @@ export function Header({ onProfileClick, onMobileMenuClick }: HeaderProps) {
           <div className="hidden sm:flex items-center gap-2 lg:gap-4 pl-3 lg:pl-6 border-l border-slate-200 dark:border-slate-700">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg">
               <Coins className="w-4 h-4 text-amber-600 dark:text-amber-500" />
-              <span className="text-sm text-amber-900 dark:text-amber-500">2,450</span>
+              <span className="text-sm text-amber-900 dark:text-amber-500">{currentUser?.coinBalance || 0}</span>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-lg">
-                <Award className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span className="text-sm text-indigo-900 dark:text-indigo-400">Gold</span>
-              </div>
+              {(currentUser?.coinBalance ?? 0) > 1000 && (
+                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-lg">
+                  <Award className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-sm text-indigo-900 dark:text-indigo-400">
+                    {(currentUser?.coinBalance ?? 0) > 5000 ? 'Platinum' : 'Gold'}
+                  </span>
+                </div>
+              )}
 
               <div className="relative">
                 <button
@@ -81,12 +96,11 @@ export function Header({ onProfileClick, onMobileMenuClick }: HeaderProps) {
                   className="flex items-center gap-2 lg:gap-3 hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors"
                 >
                   <div className="hidden lg:block text-right">
-                    <p className="text-sm text-slate-900 dark:text-white relative z-10">Sarah Chen</p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 relative z-10">Computer Engineering</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-500 relative z-10">3rd Year Student</p>
+                    <p className="text-sm text-slate-900 dark:text-white relative z-10">{currentUser?.email.split('@')[0] || 'Guest'}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 relative z-10">{currentUser?.role === 'ADMIN' ? 'Administrator' : 'Student'}</p>
                   </div>
                   <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white">SC</span>
+                    <span className="text-white">{currentUser ? currentUser.email.charAt(0).toUpperCase() : 'G'}</span>
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-600" />
                 </button>
@@ -113,7 +127,10 @@ export function Header({ onProfileClick, onMobileMenuClick }: HeaderProps) {
                           <span className="text-sm text-slate-700 dark:text-slate-300">Settings</span>
                       </button>
                         <div className="my-1 border-t border-slate-200 dark:border-slate-800"></div>
-                        <button className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left">
+                        <button onClick={() => {
+                          AuthService.logout();
+                          navigate('/login');
+                        }} className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left">
                         <LogOut className="w-4 h-4 text-red-600" />
                         <span className="text-sm text-red-600">Logout</span>
                       </button>
