@@ -45,7 +45,6 @@ pnpm-debug.log*
 
 # Backend specific (Maven)
 backend/target/
-backend/src/main/resources/application.properties
 
 # Frontend specific (Node)
 frontend/node_modules/
