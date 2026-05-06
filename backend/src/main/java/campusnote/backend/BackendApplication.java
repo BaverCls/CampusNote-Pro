@@ -21,15 +21,27 @@ public class BackendApplication {
 			@Override
 			public void addCorsMappings(CorsRegistry registry) {
 				String frontendUrl = System.getenv("FRONTEND_URL");
-				var registration = registry.addMapping("/**")
-						.allowedOrigins("http://localhost:8000", "http://localhost:5173", "http://localhost:3000")
+				List<String> origins = new java.util.ArrayList<>(List.of(
+					"http://localhost:8000", 
+					"http://localhost:5173", 
+					"http://localhost:3000"
+				));
+				
+				if (frontendUrl != null && !frontendUrl.isEmpty()) {
+					origins.add(frontendUrl);
+					// Ayrıca URL'nin sonu slaşlı/slaşsız her iki halini de ekleyelim
+					if (frontendUrl.endsWith("/")) {
+						origins.add(frontendUrl.substring(0, frontendUrl.length() - 1));
+					} else {
+						origins.add(frontendUrl + "/");
+					}
+				}
+
+				registry.addMapping("/**")
+						.allowedOrigins(origins.toArray(new String[0]))
 						.allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
 						.allowedHeaders("*")
 						.allowCredentials(true);
-				
-				if (frontendUrl != null && !frontendUrl.isEmpty()) {
-					registration.allowedOrigins(frontendUrl);
-				}
 			}
 		};
 	}

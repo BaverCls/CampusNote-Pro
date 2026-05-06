@@ -10,20 +10,26 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 public class DataInitializer {
 
+    @org.springframework.beans.factory.annotation.Value("${campusnote.admin.email}")
+    private String adminEmail;
+
+    @org.springframework.beans.factory.annotation.Value("${campusnote.admin.password}")
+    private String adminPassword;
+
     @Bean
     public CommandLineRunner initData(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         return args -> {
-            if (userRepository.findByEmail("admin1234@campusnote.com").isEmpty()) {
+            if (userRepository.findByEmail(adminEmail).isEmpty()) {
                 User admin = new User();
-                admin.setEmail("admin1234@campusnote.com");
+                admin.setEmail(adminEmail);
                 admin.setFullName("System Admin");
-                admin.setPassword(passwordEncoder.encode("Teatime1029"));
+                admin.setPassword(passwordEncoder.encode(adminPassword));
                 admin.setRole(User.Role.ADMIN);
                 admin.setCoinBalance(999999);
                 admin.setUniversity("CampusNote HQ");
                 admin.setIsActive(true);
                 userRepository.save(admin);
-                System.out.println("Admin user created: admin1234@campusnote.com / Teatime1029");
+                System.out.println("Admin user created with email: " + adminEmail);
             }
         };
     }
