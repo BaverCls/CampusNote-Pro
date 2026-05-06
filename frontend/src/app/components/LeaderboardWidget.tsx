@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Crown, Medal, Award, Loader2, RefreshCcw } from 'lucide-react';
 import { UserService, UserData } from '../services/UserService';
+import { useNavigate } from 'react-router-dom';
 
 interface LeaderboardWidgetProps {
   isLoading?: boolean;
 }
 
 export function LeaderboardWidget({ isLoading: externalLoading }: LeaderboardWidgetProps) {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -15,12 +17,22 @@ export function LeaderboardWidget({ isLoading: externalLoading }: LeaderboardWid
     setError(false);
     try {
       const data = await UserService.getLeaderboard();
-      if (data && data.length > 0) {
-        setUsers(data);
-      } else if (users.length === 0) {
-        // Only set empty if we really have no data and no previous data
-        setUsers([]);
-      }
+      const contributors = (data || [])
+        .filter((u) => {
+          const username = u.email?.split('@')?.[0]?.toLowerCase() || '';
+          const fullName = (u.fullName || '').toLowerCase();
+          const role = (u.role || '').toLowerCase();
+          return (
+            role !== 'admin' &&
+            username !== 'system_admin' &&
+            fullName !== 'system_admin' &&
+            !fullName.includes('system admin')
+          );
+        })
+        .sort((a, b) => (b.coinBalance || 0) - (a.coinBalance || 0))
+        .slice(0, 3);
+
+      setUsers(contributors);
     } catch (err) {
       console.error("Leaderboard fetch failed:", err);
       setError(true);
@@ -62,7 +74,7 @@ export function LeaderboardWidget({ isLoading: externalLoading }: LeaderboardWid
           {error && <RefreshCcw className="w-3 h-3 text-red-500 animate-spin" />}
         </div>
         <button 
-          onClick={fetchLeaderboard}
+          onClick={() => navigate('/leaderboard')}
           className="text-[10px] bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 px-2 py-1 rounded-lg font-black uppercase transition-colors"
         >
           View All

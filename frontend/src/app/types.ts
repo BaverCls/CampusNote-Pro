@@ -14,6 +14,7 @@ export interface NoteDocument {
   reviewStatus?: string;
   uploadDate?: string;
   filePath?: string;
+  liked?: boolean;
 }
 
 export interface UploadedDocument {

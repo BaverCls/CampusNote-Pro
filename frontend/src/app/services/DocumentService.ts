@@ -1,12 +1,19 @@
 import { NoteDocument } from '../types';
-
-const API_URL = 'http://localhost:8080/api';
+import { authFetch } from './AuthService';
+import { API_URL } from './config';
 
 export interface DocumentUploadData {
   title: string;
+  content?: string;
   courseCode: string;
   faculty: string;
   filePath: string;
+}
+
+function assertValidDocumentId(id: number): void {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error(`Invalid document id: expected positive integer but got ${String(id)}`);
+  }
 }
 
 interface DocumentApiDTO {
@@ -19,6 +26,14 @@ interface DocumentApiDTO {
   uploadDate?: string;
   status?: 'DRAFT' | 'PUBLISHED' | 'REJECTED';
   filePath?: string;
+  downloadCount?: number;
+  viewCount?: number;
+  likeCount?: number;
+  liked?: boolean;
+}
+
+interface ApiActionResponse {
+  message: string;
 }
 
 const toNoteDocument = (doc: DocumentApiDTO): NoteDocument => ({
@@ -31,39 +46,39 @@ const toNoteDocument = (doc: DocumentApiDTO): NoteDocument => ({
   status: doc.status || 'DRAFT',
   aiScore: doc.score ?? 0,
   score: doc.score ?? 0,
-  downloads: 0,
-  views: 0,
-  likes: 0,
+  downloads: doc.downloadCount ?? 0,
+  views: doc.viewCount ?? 0,
+  likes: doc.likeCount ?? 0,
   uploadDate: doc.uploadDate,
   filePath: doc.filePath,
+  liked: doc.liked,
 });
 
 export const DocumentService = {
-  // Cache keys
   FEED_CACHE: 'campusnote_feed_cache',
   USER_DOCS_CACHE: 'campusnote_user_docs_cache',
 
   async getFeed(): Promise<NoteDocument[]> {
-    // 1. Try to return from cache first for instant UI
     const cached = localStorage.getItem(this.FEED_CACHE);
     let initialData = cached ? JSON.parse(cached) : [];
 
     try {
-      const response = await fetch(`${API_URL}/documents/feed`, {
+      const response = await authFetch(`${API_URL}/documents/feed`, {
         mode: 'cors',
-        credentials: 'include',
         headers: { 'Accept': 'application/json' }
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload: DocumentApiDTO[] = await response.json();
       const data = payload.map(toNoteDocument);
       
-      // 2. Update cache with fresh data
       localStorage.setItem(this.FEED_CACHE, JSON.stringify(data));
       return data;
     } catch (error) {
+      // CRITICAL: If session expired, don't just return cache, let authFetch handle it
+      if (error instanceof Error && error.message === 'SESSION_EXPIRED') throw error;
+      
       console.error('Feed Fetch Error (using cache):', error);
-      return initialData; // 3. Return cached data even if network fails
+      return initialData;
     }
   },
 
@@ -73,9 +88,8 @@ export const DocumentService = {
     let initialData = cached ? JSON.parse(cached) : [];
 
     try {
-      const response = await fetch(`${API_URL}/documents/my`, {
+      const response = await authFetch(`${API_URL}/documents/my`, {
         mode: 'cors',
-        credentials: 'include',
         headers: { 'Accept': 'application/json' }
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -85,6 +99,7 @@ export const DocumentService = {
       localStorage.setItem(cacheKey, JSON.stringify(data));
       return data;
     } catch (error) {
+      if (error instanceof Error && error.message === 'SESSION_EXPIRED') throw error;
       console.error('My Docs Fetch Error (using cache):', error);
       return initialData;
     }
@@ -92,48 +107,91 @@ export const DocumentService = {
 
   async getAllDocuments(): Promise<NoteDocument[]> {
     try {
-      const response = await fetch(`${API_URL}/documents/all`, {
+      const response = await authFetch(`${API_URL}/documents/all`, {
         mode: 'cors',
-        credentials: 'include',
         headers: { 'Accept': 'application/json' }
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload: DocumentApiDTO[] = await response.json();
       return payload.map(toNoteDocument);
     } catch (error) {
+      if (error instanceof Error && error.message === 'SESSION_EXPIRED') throw error;
       console.error('All Docs Fetch Error:', error);
       return [];
     }
   },
 
   async uploadDocument(data: DocumentUploadData): Promise<NoteDocument | null> {
-    try {
-      const response = await fetch(`${API_URL}/documents/upload`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
-      const payload: DocumentApiDTO = await response.json();
-      return toNoteDocument(payload);
-    } catch (error) {
-      console.error('Document Upload Error:', error);
-      return null;
+    if (!data.title?.trim() || !data.courseCode?.trim() || !data.filePath?.trim()) {
+      throw new Error('Validation failed: title, courseCode and filePath are required');
     }
+    const response = await authFetch(`${API_URL}/documents/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(`Upload failed: ${response.status} ${errorBody}`);
+    }
+    const payload: DocumentApiDTO = await response.json();
+    return toNoteDocument(payload);
   },
 
   async reviewDocument(id: number, score: number, approve: boolean): Promise<boolean> {
     try {
-      const response = await fetch(`${API_URL}/documents/${id}/review`, {
+      assertValidDocumentId(id);
+      if (!Number.isFinite(score) || score < 0 || score > 100) {
+        throw new Error(`Validation failed: score must be 0-100 but got ${score}`);
+      }
+      const response = await authFetch(`${API_URL}/documents/${id}/review`, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ score, approve }),
       });
       return response.ok;
     } catch (error) {
       console.error('Document Review Error:', error);
+      return false;
+    }
+  },
+
+  async viewDocument(id: number): Promise<void> {
+    try {
+      assertValidDocumentId(id);
+      await authFetch(`${API_URL}/documents/${id}/view`, { method: 'POST' });
+    } catch (error) {
+      console.error('View Document Error:', error);
+    }
+  },
+
+  async downloadDocument(id: number): Promise<void> {
+    try {
+      assertValidDocumentId(id);
+      await authFetch(`${API_URL}/documents/${id}/download`, { method: 'POST' });
+    } catch (error) {
+      console.error('Download Document Error:', error);
+    }
+  },
+
+  async likeDocument(id: number): Promise<void> {
+    try {
+      assertValidDocumentId(id);
+      await authFetch(`${API_URL}/documents/${id}/like`, { method: 'POST' });
+    } catch (error) {
+      console.error('Like Document Error:', error);
+    }
+  }
+  ,
+  async deleteDocument(id: number): Promise<boolean> {
+    try {
+      assertValidDocumentId(id);
+      const response = await authFetch(`${API_URL}/documents/${id}`, { method: 'DELETE' });
+      if (!response.ok) return false;
+      await response.json().catch(() => ({}) as ApiActionResponse);
+      return true;
+    } catch (error) {
+      console.error('Delete Document Error:', error);
       return false;
     }
   }

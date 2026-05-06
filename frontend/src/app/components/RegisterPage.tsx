@@ -1,16 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Shield, Mail, Lock, ArrowRight, AlertCircle, CheckCircle2, User } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthService } from '../services/AuthService';
+import { MetaService, FacultyMeta, DepartmentMeta } from '../services/MetaService';
 
 export function RegisterPage() {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedFacultyId, setSelectedFacultyId] = useState('');
+  const [selectedDeptId, setSelectedDeptId] = useState('');
+  const [selectedYear, setSelectedYear] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [faculties, setFaculties] = useState<FacultyMeta[]>([]);
+  const [departments, setDepartments] = useState<DepartmentMeta[]>([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    Promise.all([MetaService.getFaculties(), MetaService.getDepartments()])
+      .then(([facs, depts]) => {
+        setFaculties(facs);
+        setDepartments(depts);
+      })
+      .catch(() => setError('Failed to load faculty/department list'));
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,8 +48,24 @@ export function RegisterPage() {
         return;
     }
 
+    if (!selectedFacultyId || !selectedDeptId) {
+      setError('Please select your Faculty and Department.');
+      return;
+    }
+    if (!selectedYear) {
+      setError('Please select your university year.');
+      return;
+    }
+
     setLoading(true);
-    const response = await AuthService.register(email, password, fullName);
+    const response = await AuthService.register(
+      email, 
+      password, 
+      fullName, 
+      Number(selectedFacultyId), 
+      Number(selectedDeptId),
+      Number(selectedYear)
+    );
     setLoading(false);
 
     if (response.success) {
@@ -46,8 +77,8 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 py-12">
+      <div className="max-w-xl w-full">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-600 rounded-3xl shadow-xl mb-6 transform hover:rotate-6 transition-transform">
             <Shield className="w-10 h-10 text-white" />
@@ -71,60 +102,131 @@ export function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleRegister} className="space-y-5">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
-                Full Name
-              </label>
-              <div className="relative group">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+          <form onSubmit={handleRegister} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
+                  Full Name
+                </label>
+                <div className="relative group">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Name Surname"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all dark:text-white placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
+                  Institutional Email
+                </label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@arel.edu.tr"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all dark:text-white placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
+                  Choose Password
+                </label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all dark:text-white placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
+                  University
+                </label>
                 <input
                   type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Name Surname"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all dark:text-white placeholder:text-slate-400"
+                  disabled
+                  value="Istanbul Arel University"
+                  className="w-full px-4 py-4 bg-slate-100 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-800 rounded-2xl text-slate-500 cursor-not-allowed font-medium"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
-                Institutional Email
-              </label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@arel.edu.tr"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all dark:text-white placeholder:text-slate-400"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
+                  Faculty
+                </label>
+                <select
+                  value={selectedFacultyId}
+                  onChange={(e) => {
+                    setSelectedFacultyId(e.target.value);
+                    setSelectedDeptId('');
+                  }}
+                  className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all dark:text-white"
+                >
+                  <option value="">Select Faculty</option>
+                  {faculties.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                </select>
               </div>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 font-medium ml-1">
-                Only <span className="text-indigo-600 dark:text-indigo-400">@arel.edu.tr</span> addresses accepted
-              </p>
-            </div>
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
-                Choose Password
-              </label>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all dark:text-white placeholder:text-slate-400"
-                />
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
+                  Department
+                </label>
+                <select
+                  value={selectedDeptId}
+                  onChange={(e) => setSelectedDeptId(e.target.value)}
+                  disabled={!selectedFacultyId}
+                  className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all dark:text-white disabled:opacity-50"
+                >
+                    <option value="">Select Department</option>
+                    {departments.filter(d => String(d.facultyId) === selectedFacultyId).map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
+                  Current Year *
+                </label>
+                <div className="grid grid-cols-4 gap-3">
+                  {[1, 2, 3, 4].map((y) => (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => setSelectedYear(String(y))}
+                      className={`py-3 rounded-2xl font-bold transition-all border-2 ${
+                        selectedYear === String(y)
+                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-indigo-200 dark:hover:border-indigo-900/30'
+                      }`}
+                    >
+                      {y}. Year
+                    </button>
+                  ))}
+                </div>
+              </div>
 
             <button
               type="submit"

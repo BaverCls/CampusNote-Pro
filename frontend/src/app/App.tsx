@@ -12,11 +12,13 @@ import { MobileNav } from './components/MobileNav';
 import { AdminPanel } from './components/AdminPanel';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
+import { LeaderboardPage } from './components/LeaderboardPage';
 import { faculties } from './constants';
 import { NoteDocument } from './types';
 import { AuthService } from './services/AuthService';
 import { DocumentService } from './services/DocumentService';
 import { Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 
 function DocumentCardSkeleton() {
   return (
@@ -102,6 +104,7 @@ function Dashboard() {
       <Header
         onProfileClick={() => navigate('/profile')}
         onMobileMenuClick={() => setIsMobileNavOpen(true)}
+        onSearch={setSearchQuery}
       />
       <MobileNav
         isOpen={isMobileNavOpen}
@@ -216,6 +219,13 @@ function ProfileWrapper() {
   return <ProfilePage />;
 }
 
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  if (!AuthService.isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
   if (!AuthService.isAdmin()) {
     return <Navigate to="/login" replace />;
@@ -226,15 +236,29 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Router>
+      <Toaster position="top-center" richColors />
       <Routes>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        } />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/profile" element={<ProfileWrapper />} />
+        <Route path="/profile" element={
+          <PrivateRoute>
+            <ProfileWrapper />
+          </PrivateRoute>
+        } />
         <Route path="/admin" element={
           <AdminRoute>
             <AdminPanel />
           </AdminRoute>
+        } />
+        <Route path="/leaderboard" element={
+          <PrivateRoute>
+            <LeaderboardPage />
+          </PrivateRoute>
         } />
       </Routes>
     </Router>

@@ -1,24 +1,26 @@
 package campusnote.backend.CoreSecurity;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class UserDTO {
     private Long id;
     private String email;
     private String fullName;
-    private int coinBalance;
+    private Integer coinBalance;
     private String role;
-
-    public UserDTO(Long id, String email, String fullName, int coinBalance, String role) {
-        this.id = id;
-        this.email = email;
-        this.fullName = fullName;
-        this.coinBalance = coinBalance;
-        this.role = role;
-    }
-
-    // Getters
-    public Long getId() { return id; }
-    public String getEmail() { return email; }
-    public String getFullName() { return fullName; }
-    public int getCoinBalance() { return coinBalance; }
-    public String getRole() { return role; }
+    private Long facultyId;
+    private String facultyName;
+    private Long departmentId;
+    private String departmentName;
+    private String bio;
+    private String university;
+    private Boolean isActive;
+    private Integer year;
 }

@@ -6,7 +6,11 @@ import { MobileNav } from './MobileNav';
 import { Coins, Award, FileText, CheckCircle, Clock, Lock, Sparkles, User as UserIcon } from 'lucide-react';
 import { AuthService } from '../services/AuthService';
 import { DocumentService } from '../services/DocumentService';
+import { UserService } from '../services/UserService';
+import { MetaService, FacultyMeta, DepartmentMeta } from '../services/MetaService';
 import { NoteDocument } from '../types';
+import { Settings, Save, X as CloseIcon, Loader2, Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ─── Yardımcı: Fakülte koduna göre renk döndürür ───────────────────────────
 const FACULTY_COLORS: Record<string, string> = {
@@ -75,6 +79,17 @@ export function ProfilePage() {
   const currentUser = AuthService.getCurrentUser();
   const [docs, setDocs] = useState<NoteDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [faculties, setFaculties] = useState<FacultyMeta[]>([]);
+  const [departments, setDepartments] = useState<DepartmentMeta[]>([]);
+  const [editData, setEditData] = useState({
+    fullName: currentUser?.fullName || '',
+    bio: currentUser?.bio || '',
+    university: currentUser?.university || 'Istanbul Arel University',
+    facultyId: currentUser?.facultyId?.toString() || '',
+    departmentId: currentUser?.departmentId?.toString() || ''
+  });
 
   useEffect(() => {
     if (!currentUser) {
@@ -91,6 +106,41 @@ export function ProfilePage() {
       .then(setDocs)
       .finally(() => setLoading(false));
   }, [currentUser?.id, currentUser?.email, currentUser?.role]);
+
+  useEffect(() => {
+    Promise.all([MetaService.getFaculties(), MetaService.getDepartments()])
+      .then(([facs, depts]) => {
+        setFaculties(facs);
+        setDepartments(depts);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    const dataToSend: any = { ...editData };
+    
+    if (editData.facultyId) dataToSend.facultyId = Number(editData.facultyId);
+    else delete dataToSend.facultyId;
+    
+    if (editData.departmentId) dataToSend.departmentId = Number(editData.departmentId);
+    else delete dataToSend.departmentId;
+
+    const updated = await UserService.updateProfile(dataToSend);
+    setIsSaving(false);
+    
+    if (updated) {
+      AuthService.saveUser(updated);
+      setIsEditing(false);
+      toast.success('Profile updated successfully!', {
+        icon: <Check className="w-4 h-4 text-emerald-500" />,
+        className: 'rounded-2xl border-2 border-emerald-100 dark:border-emerald-900/30'
+      });
+      window.dispatchEvent(new Event('user-data-updated'));
+    } else {
+      toast.error('Failed to update profile.');
+    }
+  };
 
   if (!currentUser || currentUser.role === 'ADMIN') return null;
 
@@ -113,8 +163,9 @@ export function ProfilePage() {
   const user = {
     name: currentUser.fullName || currentUser.email.split('@')[0],
     email: currentUser.email,
-    department: "Student",
-    university: "Istanbul Arel University",
+    bio: currentUser.bio || "No bio yet...",
+    department: currentUser.departmentName || "Student",
+    university: currentUser.university || "Istanbul Arel University",
     memberSince: "May 2026",
     rank: currentUser.coinBalance > 5000 ? 'Platinum' : currentUser.coinBalance > 1000 ? 'Gold' : 'Bronze',
     coins: currentUser.coinBalance,
@@ -164,8 +215,15 @@ export function ProfilePage() {
                     <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">CampusCoin</span>
                   </div>
                 </div>
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 shadow-sm hover:border-indigo-500 transition-all text-sm font-medium text-slate-700 dark:text-slate-300"
+                >
+                  <Settings className="w-4 h-4" /> Edit Profile
+                </button>
               </div>
             </div>
+            {user.bio && <p className="mt-6 text-slate-600 dark:text-slate-400 text-sm max-w-2xl leading-relaxed">{user.bio}</p>}
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -208,6 +266,91 @@ export function ProfilePage() {
             )}
           </div>
         </div>
+
+        {/* Edit Profile Modal */}
+        {isEditing && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 dark:border-slate-800">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit Profile</h3>
+                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                  <CloseIcon className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Full Name</label>
+                  <input 
+                    type="text" 
+                    value={editData.fullName}
+                    onChange={(e) => setEditData({...editData, fullName: e.target.value})}
+                    disabled={!!currentUser?.fullName}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all dark:text-white disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-900/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">University</label>
+                  <input 
+                    type="text" 
+                    value="Istanbul Arel University"
+                    disabled
+                    className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-500 cursor-not-allowed font-medium"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Faculty</label>
+                    <select 
+                      value={editData.facultyId}
+                      onChange={(e) => setEditData({...editData, facultyId: e.target.value, departmentId: ''})}
+                      disabled={!!currentUser?.facultyId}
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all dark:text-white disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-900/50"
+                    >
+                      <option value="">Select Faculty</option>
+                      {faculties.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Department</label>
+                    <select 
+                      value={editData.departmentId}
+                      onChange={(e) => setEditData({...editData, departmentId: e.target.value})}
+                      disabled={!!currentUser?.departmentId || !editData.facultyId}
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all dark:text-white disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-900/50"
+                    >
+                      <option value="">Select Department</option>
+                      {departments.filter(d => String(d.facultyId) === editData.facultyId).map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Bio</label>
+                  <textarea 
+                    rows={3}
+                    value={editData.bio}
+                    onChange={(e) => setEditData({...editData, bio: e.target.value})}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all dark:text-white resize-none"
+                  />
+                </div>
+              </div>
+              <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex gap-3">
+                <button onClick={() => setIsEditing(false)} className="flex-1 px-4 py-2.5 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all">
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSaveProfile} 
+                  disabled={isSaving}
+                  className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all disabled:opacity-70"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

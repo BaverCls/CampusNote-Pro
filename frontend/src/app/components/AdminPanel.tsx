@@ -16,13 +16,15 @@ import {
   Menu,
   X,
   Loader2,
-  Trash2,
   Ban,
   Eye
 } from 'lucide-react';
 import { UserService, UserData } from '../services/UserService';
 import { DocumentService } from '../services/DocumentService';
 import { NoteDocument } from '../types';
+import { AdminCourseManager } from './AdminCourseManager';
+import { Book } from 'lucide-react'; // Import a new icon for courses
+import { toast } from 'sonner';
 
 export function AdminPanel() {
   const navigate = useNavigate();
@@ -72,17 +74,56 @@ export function AdminPanel() {
     }
   };
 
+  const handleBan = async (id: number) => {
+    if (window.confirm("Are you sure you want to ban this user?")) {
+      const success = await UserService.banUser(id);
+      if (success) {
+        toast.success("User successfully banned.");
+        fetchAllData();
+      } else {
+        toast.error("Ban failed! Check backend API.");
+      }
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm("Are you sure you want to permanently delete this user?")) {
+      const success = await UserService.deleteUser(id);
+      if (success) {
+        toast.success("User deleted successfully.");
+        fetchAllData();
+      } else {
+        toast.error("Delete failed! Spring Boot endpoint missing or error.");
+      }
+    }
+  };
+
+  const handleDeleteNote = async (id: number) => {
+    if (window.confirm('Delete this reviewed note permanently?')) {
+      const success = await DocumentService.deleteDocument(id);
+      if (success) {
+        toast.success('Document deleted successfully.');
+        setDocuments((prev) => prev.filter((doc) => doc.id !== id));
+      } else {
+        toast.error('Document delete failed.');
+      }
+    }
+  };
+
   const menuItems = [
     { icon: LayoutDashboard, label: 'Overview', id: 'Dashboard' },
     { icon: Users, label: 'User Management', id: 'Users' },
+    { icon: Book, label: 'Course Management', id: 'Courses' }, // New Item
     { icon: FileText, label: 'Notes Review', id: 'Notes' },
     { icon: Flag, label: 'Reports', id: 'Reports' },
     { icon: Settings, label: 'Settings', id: 'Settings' },
   ];
 
   const filteredUsers = users.filter(user => 
-    user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+    user.role !== 'ADMIN' && (
+      user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   );
 
   const pendingNotesCount = documents.filter(d => d.status === 'DRAFT' || !d.status).length;
@@ -233,8 +274,19 @@ export function AdminPanel() {
                               <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg shadow-sm border border-transparent hover:border-slate-200 transition-all">
                                 <Eye className="w-4 h-4" />
                               </button>
-                              <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg shadow-sm border border-transparent hover:border-slate-200 transition-all">
+                              <button 
+                                onClick={() => handleBan(user.id)}
+                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg shadow-sm border border-transparent hover:border-slate-200 transition-all"
+                            title="Ban User"
+                              >
                                 <Ban className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(user.id)}
+                                className="px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-900 transition-all"
+                                title="Delete User"
+                              >
+                                Delete
                               </button>
                             </div>
                           </td>
@@ -244,6 +296,10 @@ export function AdminPanel() {
                   </table>
                 </div>
               </div>
+            )}
+
+            {activeMenu === 'Courses' && (
+              <AdminCourseManager />
             )}
 
             {activeMenu === 'Notes' && (
@@ -304,9 +360,25 @@ export function AdminPanel() {
                         )}
                         
                         {doc.status === 'PUBLISHED' && (
-                          <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm bg-emerald-50 dark:bg-emerald-500/10 px-4 py-2 rounded-xl">
-                            <CheckCircle className="w-4 h-4" /> Score: {doc.score}
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm bg-emerald-50 dark:bg-emerald-500/10 px-4 py-2 rounded-xl">
+                              <CheckCircle className="w-4 h-4" /> Score: {doc.score}
+                            </div>
+                            <button
+                              onClick={() => handleDeleteNote(doc.id)}
+                              className="px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-900 transition-all"
+                            >
+                              Delete
+                            </button>
                           </div>
+                        )}
+                        {doc.status === 'REJECTED' && (
+                          <button
+                            onClick={() => handleDeleteNote(doc.id)}
+                            className="px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-900 transition-all"
+                          >
+                            Delete
+                          </button>
                         )}
                       </div>
                     ))

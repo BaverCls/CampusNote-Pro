@@ -2,17 +2,14 @@ package campusnote.backend.CoreDocumentManagement;
 
 import campusnote.backend.CoreSecurity.User;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.Getter;
+import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "documents")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter
+@Setter
 public class Document {
     
     @Id
@@ -22,27 +19,59 @@ public class Document {
     @Column(nullable = false)
     private String title;
 
-    @Column(nullable = false)
+    @Column(name = "course_code", nullable = false)
     private String courseCode;
 
-    @Column(nullable = false)
-    private String faculty;
+    @Lob
+    private String content;
 
-    @Column(nullable = false)
+    private Integer type;
+
+    @Column(name = "faculty", nullable = false)
+    private String facultyName;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uploaded_by_user_id")
+    private User user;
+
+    private LocalDateTime uploadedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id")
+    private Course course;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "faculty_id")
+    private Faculty faculty;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
+    private Integer isPublic;
+
+    @Column(name = "score")
+    private Double score = 0.0;
+
+    @Column(name = "download_count")
+    private Integer downloadCount = 0;
+
+    @Column(name = "view_count")
+    private Integer viewCount = 0;
+
+    @Column(name = "file_path")
     private String filePath;
 
-    @Enumerated(EnumType.STRING)
-    private DocumentStatus status = DocumentStatus.DRAFT;
+    @ManyToMany
+    @JoinTable(
+        name = "document_likes",
+        joinColumns = @JoinColumn(name = "document_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private java.util.Set<User> likedByUsers = new java.util.HashSet<>();
 
-    private Integer aiScore;
-
-    @ManyToOne
-    @JoinColumn(name = "uploader_id")
-    private User uploader;
-
-    private LocalDateTime uploadDate = LocalDateTime.now();
-
-    public enum DocumentStatus {
-        DRAFT, PUBLISHED, REJECTED
+    @PrePersist
+    protected void onCreate() {
+        uploadedAt = LocalDateTime.now();
     }
 }

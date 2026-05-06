@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Upload, FileText, Loader2 } from 'lucide-react';
-import { faculties, departments, courses } from '../constants';
+import { useNavigate } from 'react-router-dom';
 import { DocumentService } from '../services/DocumentService';
 import { AuthService } from '../services/AuthService';
+import { CourseService, Course } from '../services/CourseService';
+import { MetaService, FacultyMeta, DepartmentMeta } from '../services/MetaService';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -17,29 +19,79 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
   const [selectedDeptId, setSelectedDeptId] = useState('');
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [faculties, setFaculties] = useState<FacultyMeta[]>([]);
+  const [departments, setDepartments] = useState<DepartmentMeta[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isOpen) {
+      loadCourses();
+      loadMeta();
+    }
+  }, [isOpen]);
+
+  const loadMeta = async () => {
+    try {
+      const [facs, depts] = await Promise.all([MetaService.getFaculties(), MetaService.getDepartments()]);
+      setFaculties(facs);
+      setDepartments(depts);
+    } catch (err) {
+      console.error('Failed to load metadata:', err);
+    }
+  };
+
+  const loadCourses = async () => {
+    setLoadingCourses(true);
+    try {
+      const data = await CourseService.getAll();
+      setAllCourses(data);
+    } catch (err) {
+      console.error("Failed to load courses:", err);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
 
   const currentUser = AuthService.getCurrentUser();
 
   const handleUpload = async () => {
-    if (!selectedFile || !selectedCourseId || !currentUser) return;
+    if (!selectedFile || !selectedCourseId) return;
+
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
 
     setIsUploading(true);
-    const faculty = faculties.find(f => f.id === selectedFacultyId)?.name || '';
-    const course = courses.find(c => c.id === selectedCourseId);
+    setUploadError('');
 
-    const result = await DocumentService.uploadDocument({
-      title: selectedFile.name,
-      courseCode: course?.code || '',
-      faculty: faculty,
-      filePath: `mock_path/${selectedFile.name}`, // Replace with Supabase public URL after storage upload.
-    });
+    try {
+      const faculty = faculties.find(f => String(f.id) === selectedFacultyId)?.name || '';
+      const course = allCourses.find(c => c.id.toString() === selectedCourseId);
 
-    setIsUploading(false);
-    if (result) {
-      onClose();
-      if (onSuccess) onSuccess();
-    } else {
-      alert("Upload failed. Please check the console for details.");
+      const result = await DocumentService.uploadDocument({
+        title: selectedFile.name,
+        courseCode: course?.code || '',
+        faculty: faculty,
+        filePath: `mock_path/${selectedFile.name}`,
+      });
+
+      if (result) {
+        onClose();
+        if (onSuccess) onSuccess();
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SESSION_EXPIRED') {
+        // authFetch already cleared localStorage and will redirect
+        return;
+      }
+      console.error('Document Upload Error:', error);
+      setUploadError('Upload failed. Please try again.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -75,8 +127,8 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
   if (!isOpen) return null;
 
   // Filter logic
-  const filteredDepartments = departments.filter(d => d.facultyId === selectedFacultyId);
-  const filteredCourses = courses.filter(c => c.deptId === selectedDeptId);
+  const filteredDepartments = departments.filter(d => String(d.facultyId) === selectedFacultyId);
+  const filteredCourses = allCourses.filter(c => c.department?.id.toString() === selectedDeptId);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -92,6 +144,11 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         </div>
 
         <div className="p-6 space-y-6">
+          {uploadError && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400 font-medium">
+              {uploadError}
+            </div>
+          )}
           <div
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -148,17 +205,16 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
                   <button
                     key={f.id}
                     onClick={() => {
-                      setSelectedFacultyId(f.id);
+                      setSelectedFacultyId(String(f.id));
                       setSelectedDeptId('');
                       setSelectedCourseId('');
                     }}
                     className={`p-3 rounded-xl border text-sm font-medium transition-all flex flex-col items-center gap-2 ${
-                      selectedFacultyId === f.id
+                      selectedFacultyId === String(f.id)
                         ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 ring-2 ring-indigo-600'
                         : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-indigo-300'
                     }`}
                   >
-                    <span className="text-2xl">{f.icon}</span>
                     {f.name}
                   </button>
                 ))}
@@ -188,12 +244,12 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
               <select
                 value={selectedCourseId}
                 onChange={(e) => setSelectedCourseId(e.target.value)}
-                disabled={!selectedDeptId}
+                disabled={!selectedDeptId || loadingCourses}
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                <option value="">Choose Course</option>
+                <option value="">{loadingCourses ? 'Loading courses...' : 'Choose Course'}</option>
                 {filteredCourses.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
                 ))}
               </select>
             </div>

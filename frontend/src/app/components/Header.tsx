@@ -6,9 +6,10 @@ import { useNavigate } from 'react-router-dom';
 interface HeaderProps {
   onProfileClick?: () => void;
   onMobileMenuClick?: () => void;
+  onSearch?: (query: string) => void;
 }
 
-export function Header({ onProfileClick, onMobileMenuClick }: HeaderProps) {
+export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const navigate = useNavigate();
@@ -55,6 +56,7 @@ export function Header({ onProfileClick, onMobileMenuClick }: HeaderProps) {
             <input
               type="text"
               placeholder="Search course code, faculty..."
+              onChange={(e) => onSearch?.(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:focus:ring-indigo-500 focus:border-transparent"
             />
           </div>

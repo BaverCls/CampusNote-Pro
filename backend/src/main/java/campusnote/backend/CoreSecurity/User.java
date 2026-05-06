@@ -1,11 +1,16 @@
 package campusnote.backend.CoreSecurity;
 
+import campusnote.backend.CoreDocumentManagement.Department;
+import campusnote.backend.CoreDocumentManagement.Faculty;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Pattern;
+import lombok.Getter;
+import lombok.Setter;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
+@Getter
+@Setter
 public class User {
 
     @Id
@@ -13,42 +18,60 @@ public class User {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    @Email
-    @Pattern(regexp = "^[A-Za-z0-9._%+-]+@arel\\.edu\\.tr$", message = "Only @arel.edu.tr emails are allowed")
     private String email;
-    
+
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(nullable = false)
-    private String password; // Will store BCrypt hash
+    @Column(name = "password", nullable = false)
+    private String password;
 
-    private int coinBalance = 0;
+    @Column(name = "coin_balance")
+    private Integer coinBalance = 0;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "varchar(255) default 'STUDENT'")
     private Role role = Role.STUDENT;
 
-    public enum Role {
-        STUDENT,
-        ADMIN
+    @Column(name = "bio")
+    private String bio;
+
+    @Column(name = "department_name")
+    private String departmentName;
+
+    @Column(name = "university")
+    private String university;
+
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
+    @Column(name = "year")
+    private Integer year;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "faculty_id")
+    private Faculty faculty;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-
-    public String getPassword() { return password; }
-    public void setPassword(String password) { this.password = password; }
-
-    public int getCoinBalance() { return coinBalance; }
-    public void setCoinBalance(int coinBalance) { this.coinBalance = coinBalance; }
-
-    public String getFullName() { return fullName; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
-
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
+    public enum Role {
+        STUDENT, ADMIN
+    }
 }

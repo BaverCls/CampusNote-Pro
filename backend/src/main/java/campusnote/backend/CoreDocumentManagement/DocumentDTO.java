@@ -1,20 +1,35 @@
 package campusnote.backend.CoreDocumentManagement;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class DocumentDTO {
     private Long id;
     private String title;
-    private String courseCode;
-    private String faculty;
-    private Integer score;
+    private String content;
+    private Integer type;
+    private Long userId;
     private String uploaderName;
-    private String uploadDate;
+    private String uploadedAt;
+    private Long courseId;
+    private String courseCode;
+    private Long facultyId;
+    private String facultyName;
+    private Long departmentId;
+    private String departmentName;
     private String status;
+    private Double score;
+    private String uploadDate;
+    private String faculty;
+    private Integer downloadCount;
+    private Integer viewCount;
+    private Integer likeCount;
     private String filePath;
+    private boolean liked;
 }

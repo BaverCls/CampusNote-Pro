@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8080/api';
+import { API_URL } from './config';
 
 export interface User {
   id: number;
@@ -6,30 +6,91 @@ export interface User {
   fullName?: string;
   coinBalance: number;
   role: 'STUDENT' | 'ADMIN';
+  bio?: string;
+  university?: string;
+  facultyId?: number;
+  departmentId?: number;
+  departmentName?: string;
+  facultyName?: string;
+  year?: number;
+  token?: string;
+}
+
+type ApiErrorPayload = { error?: string; message?: string; details?: string };
+
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const payload = (await response.json()) as ApiErrorPayload;
+      return payload.error || payload.message || payload.details || fallback;
+    }
+    const text = await response.text();
+    return text || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Global fetch wrapper that handles 401 (session expired) automatically.
+ * When any API call returns 401, it clears localStorage and redirects to /login.
+ */
+export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const currentUser = AuthService.getCurrentUser();
+  const token = currentUser?.token;
+  const mergedHeaders = new Headers(options.headers || {});
+  if (token && !mergedHeaders.has('Authorization')) {
+    mergedHeaders.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: mergedHeaders,
+    credentials: 'include',
+  });
+
+  if (response.status === 401) {
+    const isAuthPage = window.location.pathname.includes('/login') || window.location.pathname.includes('/register');
+    
+    if (!isAuthPage) {
+      console.warn(`Session expired (401) on URL: ${url}. Redirecting to login...`);
+      localStorage.removeItem('user');
+      // Use a small delay to ensure the state is cleared before redirect
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 100);
+      throw new Error('SESSION_EXPIRED');
+    }
+  }
+
+  return response;
 }
 
 export const AuthService = {
-  async register(email: string, password: string, fullName: string):Promise<{success: boolean, message: string}> {
+  async register(email: string, password: string, fullName: string, facultyId: number, departmentId: number, year: number): Promise<{success: boolean, message: string}> {
+    if (!Number.isInteger(facultyId) || !Number.isInteger(departmentId) || facultyId <= 0 || departmentId <= 0 || !Number.isInteger(year) || year < 1 || year > 4) {
+      return { success: false, message: 'Invalid registration details' };
+    }
     try {
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName }),
+        body: JSON.stringify({ email, password, fullName, facultyId, departmentId, year }),
       });
       
-      const data = await response.text();
-      
       if (!response.ok) {
-        return { success: false, message: data || 'Registration failed' };
+        return { success: false, message: await readErrorMessage(response, 'Registration failed') };
       }
-      
-      return { success: true, message: data };
+      const payload = await response.json().catch(() => ({} as { message?: string }));
+      return { success: true, message: payload.message || 'User registered successfully' };
     } catch (error) {
       return { success: false, message: 'Network error occurred' };
     }
   },
 
-  async login(email: string, password: string):Promise<{success: boolean, user?: User, message?: string}> {
+  async login(email: string, password: string): Promise<{success: boolean, user?: User, message?: string}> {
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -38,23 +99,18 @@ export const AuthService = {
         body: JSON.stringify({ email, password }),
       });
 
-      const contentType = response.headers.get('content-type');
-      const payload = contentType?.includes('application/json')
-        ? await response.json()
-        : await response.text();
-
       if (!response.ok) {
         return {
           success: false,
-          message: typeof payload === 'string' ? payload : 'Login failed',
+          message: await readErrorMessage(response, 'Login failed'),
         };
       }
 
-      const user = payload as User;
+      const user = await response.json() as User;
       localStorage.setItem('user', JSON.stringify(user));
       return { success: true, user };
     } catch (error) {
-      return { success: false, message: 'Login failed' };
+      return { success: false, message: 'Login failed due to connection error' };
     }
   },
 
@@ -62,25 +118,43 @@ export const AuthService = {
     const user = this.getCurrentUser();
     if (!user) return;
 
-    const { UserService } = await import('./UserService');
-    const freshData = await UserService.getProfile();
-    if (freshData) {
-      const updatedUser = { ...user, ...freshData };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      // Dispatch a custom event to notify components like Header/Sidebar
-      window.dispatchEvent(new Event('user-data-updated'));
+    try {
+      const { UserService } = await import('./UserService');
+      const freshData = await UserService.getProfile();
+      if (freshData) {
+        const updatedUser = { ...user, ...freshData };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        window.dispatchEvent(new Event('user-data-updated'));
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message === 'SESSION_EXPIRED') return;
+      console.error('Refresh user error:', e);
     }
   },
 
   logout() {
-    fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => undefined);
-    localStorage.removeItem('user');
+    fetch(`${API_URL}/auth/logout`, { 
+      method: 'POST', 
+      credentials: 'include' 
+    }).finally(() => {
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    });
+  },
+
+  saveUser(user: User) {
+    localStorage.setItem('user', JSON.stringify(user));
   },
 
   getCurrentUser(): User | null {
     const userStr = localStorage.getItem('user');
     if (!userStr) return null;
-    return JSON.parse(userStr);
+    try {
+      return JSON.parse(userStr);
+    } catch (e) {
+      localStorage.removeItem('user');
+      return null;
+    }
   },
 
   isAuthenticated(): boolean {

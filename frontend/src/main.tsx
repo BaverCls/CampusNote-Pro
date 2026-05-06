@@ -4,14 +4,20 @@
   import "./styles/index.css";
 
   const originalFetch = window.fetch;
-  window.fetch = async (...args) => {
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const start = Date.now();
-    const request = new Request(...args);
-    const method = request.method;
-    const url = request.url;
+    
+    // Merge or set credentials: 'include' to ensure cookies work across ports 8000 -> 8080
+    const modifiedInit = {
+      ...init,
+      credentials: init?.credentials || 'include' as RequestCredentials
+    };
+
+    const method = modifiedInit.method || 'GET';
+    const url = input.toString();
     
     try {
-      const response = await originalFetch(...args);
+      const response = await originalFetch(input, modifiedInit);
       const clonedResponse = response.clone();
       let bodyData = null;
       try { bodyData = await clonedResponse.json(); } catch (e) { try { bodyData = await clonedResponse.text(); } catch (e2) {} }
@@ -26,7 +32,7 @@
         ResponseData: typeof bodyData === 'object' ? JSON.stringify(bodyData) : bodyData
       }]);
       return response;
-    } catch (error) {
+    } catch (error: any) {
       console.table([{
         Type: 'API Error',
         Method: method,

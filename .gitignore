@@ -16,9 +16,6 @@ node_modules/
 dist/
 target/
 build/
-.mvn/
-mvnw
-mvnw.cmd
 .gradle/
 bin/
 
@@ -48,9 +45,6 @@ pnpm-debug.log*
 
 # Backend specific (Maven)
 backend/target/
-backend/.mvn/
-backend/mvnw
-backend/mvnw.cmd
 backend/src/main/resources/application.properties
 
 # Frontend specific (Node)

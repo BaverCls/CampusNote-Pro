@@ -15,7 +15,7 @@ export function MobileNav({ isOpen, onClose, activeItem = 'Dashboard', onProfile
     { icon: Home, label: 'Dashboard', id: 'Dashboard', path: '/' },
     { icon: BookOpen, label: 'My Faculty', id: 'MyFaculty', path: '#' },
     { icon: TrendingUp, label: 'Top Documents', id: 'TopDocuments', path: '#' },
-    { icon: Trophy, label: 'Leaderboard', id: 'Leaderboard', path: '#' },
+    { icon: Trophy, label: 'Leaderboard', id: 'Leaderboard', path: '/leaderboard' },
     ...(AuthService.isAdmin() ? [{ icon: Shield, label: 'Admin Panel', id: 'Admin', path: '/admin' }] : []),
   ];
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle, Download, Eye, ThumbsUp, Clock, Sparkles, FileText, Lock, X } from 'lucide-react';
+import { DocumentService } from '../services/DocumentService';
 
 interface DocumentCardProps {
   title: string;
@@ -12,6 +13,8 @@ interface DocumentCardProps {
   likes: number;
   reviewStatus?: string;
   filePath?: string;
+  id: number;
+  liked?: boolean;
 }
 
 export function DocumentCard({
@@ -25,8 +28,47 @@ export function DocumentCard({
   likes,
   reviewStatus,
   filePath,
+  id,
+  liked,
 }: DocumentCardProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [currentLikes, setCurrentLikes] = useState(likes);
+  const [currentDownloads, setCurrentDownloads] = useState(downloads);
+  const [isLiked, setIsLiked] = useState(liked);
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!filePath) return;
+    
+    // Increment count on backend
+    await DocumentService.downloadDocument(id);
+    setCurrentDownloads(prev => prev + 1);
+
+    // Trigger browser download
+    const link = document.createElement('a');
+    link.href = filePath;
+    link.download = title;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await DocumentService.likeDocument(id);
+    if (isLiked) {
+        setCurrentLikes(prev => prev - 1);
+        setIsLiked(false);
+    } else {
+        setCurrentLikes(prev => prev + 1);
+        setIsLiked(true);
+    }
+  };
+
+  const handlePreview = async () => {
+    setPreviewOpen(true);
+    await DocumentService.viewDocument(id);
+  };
   
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -90,7 +132,7 @@ export function DocumentCard({
             </div>
             {canPreview && (
               <button
-                onClick={() => setPreviewOpen(true)}
+                onClick={handlePreview}
                 className="text-[10px] font-semibold text-white bg-black/35 px-2 py-1 rounded"
               >
                 Preview
@@ -111,6 +153,7 @@ export function DocumentCard({
             </div>
             
             <button 
+              onClick={handleDownload}
               className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm shadow-indigo-500/20 group/dl"
               title="Download Document"
             >
@@ -144,12 +187,15 @@ export function DocumentCard({
             </div>
             <div className="flex items-center gap-1">
               <Download className="w-3.5 h-3.5" />
-              <span className="text-xs">{downloads}</span>
+              <span className="text-xs">{currentDownloads}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <ThumbsUp className="w-3.5 h-3.5" />
-              <span className="text-xs">{likes}</span>
-            </div>
+            <button 
+              onClick={handleLike}
+              className={`flex items-center gap-1 transition-colors ${isLiked ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'hover:text-indigo-600'}`}
+            >
+              <ThumbsUp className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
+              <span className="text-xs">{currentLikes}</span>
+            </button>
           </div>
           
           <div className="flex items-center gap-2">
