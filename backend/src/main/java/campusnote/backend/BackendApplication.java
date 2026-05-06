@@ -20,11 +20,16 @@ public class BackendApplication {
 		return new WebMvcConfigurer() {
 			@Override
 			public void addCorsMappings(CorsRegistry registry) {
-				registry.addMapping("/**")
+				String frontendUrl = System.getenv("FRONTEND_URL");
+				var registration = registry.addMapping("/**")
 						.allowedOrigins("http://localhost:8000", "http://localhost:5173", "http://localhost:3000")
 						.allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
 						.allowedHeaders("*")
 						.allowCredentials(true);
+				
+				if (frontendUrl != null && !frontendUrl.isEmpty()) {
+					registration.allowedOrigins(frontendUrl);
+				}
 			}
 		};
 	}
