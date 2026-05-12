@@ -59,6 +59,13 @@ public class User {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+    private String rank = "ROOKIE";
+
+    @Column(name = "reset_token")
+    private String resetToken;
+
+    @Column(name = "reset_token_expiry")
+    private LocalDateTime resetTokenExpiry;
 
     @PrePersist
     protected void onCreate() {
@@ -71,6 +78,7 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
+    // FR-ST-47: Non-Administrator access control handled via Role
     public enum Role {
         STUDENT, ADMIN
     }

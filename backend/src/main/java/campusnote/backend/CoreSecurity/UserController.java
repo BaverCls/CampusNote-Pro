@@ -2,6 +2,7 @@ package campusnote.backend.CoreSecurity;
 
 import campusnote.backend.CoreDocumentManagement.DepartmentRepository;
 import campusnote.backend.CoreDocumentManagement.FacultyRepository;
+import campusnote.backend.CoreDocumentManagement.DocumentRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,13 +18,16 @@ public class UserController {
     private final UserRepository userRepository;
     private final FacultyRepository facultyRepository;
     private final DepartmentRepository departmentRepository;
+    private final DocumentRepository documentRepository;
 
     public UserController(UserRepository userRepository, 
                           FacultyRepository facultyRepository, 
-                          DepartmentRepository departmentRepository) {
+                          DepartmentRepository departmentRepository,
+                          DocumentRepository documentRepository) {
         this.userRepository = userRepository;
         this.facultyRepository = facultyRepository;
         this.departmentRepository = departmentRepository;
+        this.documentRepository = documentRepository;
     }
 
     @GetMapping
@@ -158,6 +162,9 @@ public class UserController {
         Long deptId = (user.getDepartment() != null) ? user.getDepartment().getId() : null;
         String roleName = (user.getRole() != null) ? user.getRole().name() : "STUDENT";
         
+        Long totalDownloads = documentRepository.sumDownloadsByUserId(user.getId());
+        Long totalLikes = documentRepository.sumLikesByUserId(user.getId());
+
         return new UserDTO(
                 user.getId(),
                 user.getEmail(),
@@ -171,7 +178,11 @@ public class UserController {
                 user.getBio(),
                 user.getUniversity(),
                 user.getIsActive(),
-                user.getYear()
+                user.getYear(),
+                user.getCreatedAt() != null ? user.getCreatedAt().toString() : null,
+                user.getRank() != null ? user.getRank() : "NEWBIE",
+                totalDownloads != null ? totalDownloads.intValue() : 0,
+                totalLikes != null ? totalLikes.intValue() : 0
         );
     }
 }

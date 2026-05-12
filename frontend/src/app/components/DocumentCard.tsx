@@ -40,7 +40,7 @@ export function DocumentCard({
     e.stopPropagation();
     if (!filePath) return;
     
-    // Increment count on backend
+    // FR-ST-14: The system shall increase the "download count" upon clicking the download button
     await DocumentService.downloadDocument(id);
     setCurrentDownloads(prev => prev + 1);
 
@@ -55,6 +55,7 @@ export function DocumentCard({
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    // FR-ST-16: The system shall increase the document's "Like count" upon clicking the like button
     await DocumentService.likeDocument(id);
     if (isLiked) {
         setCurrentLikes(prev => prev - 1);
@@ -115,11 +116,16 @@ export function DocumentCard({
         </div>
       </div>
 
-      {/* Document Thumbnail Preview */}
+      {/* FR-ST-43: The system shall display a visual thumbnail preview of the document */}
       <div className="relative aspect-[4/3] mb-4 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 group-hover:border-indigo-300 dark:group-hover:border-indigo-900 transition-colors">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 flex items-center justify-center">
           {isImage && filePath ? (
             <img src={filePath} alt={title} className="w-full h-full object-cover" />
+          ) : isPdf ? (
+            <div className="flex flex-col items-center gap-2">
+              <FileText className="w-12 h-12 text-indigo-200 dark:text-indigo-900/50" />
+              <span className="text-[10px] font-black text-indigo-300 dark:text-indigo-800 uppercase tracking-widest">PDF Document</span>
+            </div>
           ) : (
             <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600" />
           )}

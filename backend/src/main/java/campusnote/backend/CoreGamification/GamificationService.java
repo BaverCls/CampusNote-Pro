@@ -1,22 +1,51 @@
 package campusnote.backend.CoreGamification;
 
+import campusnote.backend.CoreSecurity.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
+import java.util.TreeMap;
 
 @Service
 public class GamificationService {
 
-    @Transactional
-    public void awardCoins(Long userId) {
-        // Increases coinBalance by exactly 10 units.
-        // UserRepository.findById(userId)...
-        // user.setCoinBalance(user.getCoinBalance() + 10);
+    private final UserRepository userRepository;
+
+    // FR-ST-35: Virtual rank thresholds
+    private static final TreeMap<Integer, String> RANK_THRESHOLDS = new TreeMap<>(Map.of(
+        0, "ROOKIE",
+        500, "SCHOLAR",
+        1500, "SAGE",
+        3000, "LEGEND"
+    ));
+
+    public GamificationService(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
     @Transactional
-    public void notifyUser(Long userId, String message) {
-        // Creates a persistent record in the Notification table.
-        // Notification notification = new Notification(userId, message);
-        // notificationRepository.save(notification);
+    public void updateRank(Long userId) {
+        userRepository.findById(userId).ifPresent(user -> {
+            int balance = user.getCoinBalance() != null ? user.getCoinBalance() : 0;
+            
+            // Find the highest rank threshold met
+            String newRank = RANK_THRESHOLDS.floorEntry(balance).getValue();
+            
+            // FR-ST-36: Upgrade rank if threshold met
+            if (!newRank.equals(user.getRank())) {
+                user.setRank(newRank);
+                userRepository.save(user);
+            }
+        });
+    }
+
+    @Transactional
+    public void awardCoins(Long userId, int amount) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setCoinBalance((user.getCoinBalance() != null ? user.getCoinBalance() : 0) + amount);
+            userRepository.save(user);
+            updateRank(userId);
+        });
     }
 }

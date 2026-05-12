@@ -12,8 +12,8 @@ class DocumentServiceTest {
     private DocumentRepository documentRepository;
     private UserRepository userRepository;
     private CourseRepository courseRepository;
-    private FacultyRepository facultyRepository;
-    private DepartmentRepository departmentRepository;
+    private campusnote.backend.LiaisonAI.LiaisonService liaisonService;
+    private campusnote.backend.CoreGamification.GamificationService gamificationService;
     private DocumentService documentService;
 
     @BeforeEach
@@ -21,9 +21,9 @@ class DocumentServiceTest {
         documentRepository = mock(DocumentRepository.class);
         userRepository = mock(UserRepository.class);
         courseRepository = mock(CourseRepository.class);
-        facultyRepository = mock(FacultyRepository.class);
-        departmentRepository = mock(DepartmentRepository.class);
-        documentService = new DocumentService(documentRepository, userRepository, courseRepository, facultyRepository, departmentRepository);
+        liaisonService = mock(campusnote.backend.LiaisonAI.LiaisonService.class);
+        gamificationService = mock(campusnote.backend.CoreGamification.GamificationService.class);
+        documentService = new DocumentService(documentRepository, userRepository, courseRepository, liaisonService, gamificationService);
     }
 
     @Test

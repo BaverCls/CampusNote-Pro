@@ -97,9 +97,14 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="flex items-center gap-2 lg:gap-3 hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors"
                 >
-                  <div className="hidden lg:block text-right">
-                    <p className="text-sm text-slate-900 dark:text-white relative z-10">{currentUser?.email.split('@')[0] || 'Guest'}</p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 relative z-10">{currentUser?.role === 'ADMIN' ? 'Administrator' : 'Student'}</p>
+                  <div className="hidden lg:block text-right mr-2">
+                    <p className="text-sm text-slate-900 dark:text-white relative z-10 font-bold">{currentUser?.email.split('@')[0] || 'Guest'}</p>
+                    <div className="flex flex-col items-end">
+                      {/* FR-ST-06: Display the user's enrolled academic Department on the dashboard navigation bar */}
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-tight">{currentUser?.departmentName || 'General'}</p>
+                      {/* FR-ST-07: Display the user's current academic year on the dashboard navigation bar */}
+                      <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">Year {currentUser?.year || '1'}</p>
+                    </div>
                   </div>
                   <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-white">{currentUser ? currentUser.email.charAt(0).toUpperCase() : 'G'}</span>

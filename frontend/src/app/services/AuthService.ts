@@ -92,6 +92,8 @@ export const AuthService = {
 
   async login(email: string, password: string): Promise<{success: boolean, user?: User, message?: string}> {
     try {
+      // FR-ST-01: The system shall authenticate users using an "@arel.edu.tr" email domain
+      // FR-ST-02: The system shall deny login attempts containing incorrect credentials
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,6 +131,33 @@ export const AuthService = {
     } catch (e) {
       if (e instanceof Error && e.message === 'SESSION_EXPIRED') return;
       console.error('Refresh user error:', e);
+    }
+  },
+
+  async forgotPassword(email: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<{success: boolean, message?: string}> {
+    try {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword }),
+      });
+      if (response.ok) return { success: true };
+      return { success: false, message: await response.text() };
+    } catch {
+      return { success: false, message: 'Network error' };
     }
   },
 

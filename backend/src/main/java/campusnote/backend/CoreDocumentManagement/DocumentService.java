@@ -2,6 +2,9 @@ package campusnote.backend.CoreDocumentManagement;
 
 import campusnote.backend.CoreSecurity.User;
 import campusnote.backend.CoreSecurity.UserRepository;
+import campusnote.backend.CoreGamification.GamificationService;
+import campusnote.backend.LiaisonAI.LiaisonService;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.annotation.PostConstruct;
@@ -16,19 +19,22 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final CourseRepository courseRepository;
-    private final FacultyRepository facultyRepository;
-    private final DepartmentRepository departmentRepository;
+    private final LiaisonService liaisonService;
+    private final GamificationService gamificationService;
+
+    // FR-DOC-64: Global AI algorithm passing score
+    private int globalAiThreshold = 60;
 
     public DocumentService(DocumentRepository documentRepository, 
                            UserRepository userRepository,
                            CourseRepository courseRepository,
-                           FacultyRepository facultyRepository,
-                           DepartmentRepository departmentRepository) {
+                           @Lazy LiaisonService liaisonService,
+                           GamificationService gamificationService) {
         this.documentRepository = documentRepository;
         this.userRepository = userRepository;
         this.courseRepository = courseRepository;
-        this.facultyRepository = facultyRepository;
-        this.departmentRepository = departmentRepository;
+        this.liaisonService = liaisonService;
+        this.gamificationService = gamificationService;
     }
 
     @PostConstruct
@@ -36,7 +42,8 @@ public class DocumentService {
     public void publishAllExistingDocuments() {
         List<Document> drafts = documentRepository.findAll();
         for (Document doc : drafts) {
-            if (doc.getIsPublic() == null || doc.getIsPublic() != 1) {
+            if (doc.getStatus() == null || doc.getStatus().equals("DRAFT")) {
+                doc.setStatus("PUBLISHED");
                 doc.setIsPublic(1);
                 doc.setScore(85.0);
                 if (doc.getCourseCode() == null) doc.setCourseCode("GENERAL");
@@ -59,13 +66,12 @@ public class DocumentService {
         doc.setCourseCode(courseCode != null ? courseCode : "GENERAL");
         doc.setFacultyName(faculty != null ? faculty : "GENERAL");
         
-        // Course lookup: graceful — if not found, upload still succeeds without course link
+        // Course lookup
         if (courseCode != null && !courseCode.isBlank()) {
             Optional<Course> courseOpt = courseRepository.findByCode(courseCode);
             if (courseOpt.isPresent()) {
                 Course course = courseOpt.get();
                 doc.setCourse(course);
-                // Deduce Faculty and Department from Course
                 if (course.getDepartment() != null) {
                     doc.setDepartment(course.getDepartment());
                     if (course.getDepartment().getFaculty() != null) {
@@ -76,7 +82,6 @@ public class DocumentService {
             }
         }
 
-        // Fallback: if faculty/department not set via course, try to get from user's own faculty/department
         if (doc.getFaculty() == null && user.getFaculty() != null) {
             doc.setFaculty(user.getFaculty());
         }
@@ -84,10 +89,51 @@ public class DocumentService {
             doc.setDepartment(user.getDepartment());
         }
         
-        doc.setType(1); // Default type
-        doc.setIsPublic(0); // Default to draft/private
+        doc.setType(1); 
+        doc.setIsPublic(0); 
+        doc.setStatus("DRAFT"); // FR-ST-20
         
-        return documentRepository.save(doc);
+        Document saved = documentRepository.save(doc);
+        
+        // FR-ST-23: Transmit to AI Ranking Service
+        liaisonService.triggerEvaluation(saved.getId());
+        
+        return saved;
+    }
+
+    @Transactional
+    public void finalizeAIRanking(Long docId, int score) {
+        documentRepository.findById(docId).ifPresent(doc -> {
+            doc.setScore((double) score);
+            
+            // FR-DOC-28: Transition to Published if threshold met
+            if (score >= globalAiThreshold) {
+                doc.setStatus("PUBLISHED");
+                doc.setIsPublic(1);
+                
+                // FR-ST-34: Add CampusCoin reward upon Published status
+                awardCoinsForDocument(doc);
+            } else {
+                // FR-DOC-29: Flag if below threshold
+                doc.setStatus("FLAGGED");
+                doc.setIsPublic(0);
+            }
+            documentRepository.save(doc);
+        });
+    }
+
+    private void awardCoinsForDocument(Document doc) {
+        if (doc.getUser() != null && doc.getCourse() != null) {
+            // FR-ST-33: Reward = AKTS * 10
+            Integer akts = doc.getCourse().getEcts();
+            if (akts == null) akts = 5; // Fallback
+            
+            int reward = akts * 10;
+            User user = doc.getUser();
+            user.setCoinBalance((user.getCoinBalance() != null ? user.getCoinBalance() : 0) + reward);
+            userRepository.save(user);
+            gamificationService.updateRank(user.getId());
+        }
     }
 
     public List<DocumentDTO> getPublicDocuments(String currentUserEmail) {
@@ -97,14 +143,30 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
-    public List<DocumentDTO> searchDocuments(String query, String currentUserEmail) {
-        String lowerQuery = query.toLowerCase();
-        return documentRepository.findByIsPublic(1)
-                .stream()
-                .filter(doc -> doc.getTitle().toLowerCase().contains(lowerQuery) || 
-                              (doc.getCourse() != null && doc.getCourse().getCode().toLowerCase().contains(lowerQuery)))
-                .map(doc -> convertToDTO(doc, currentUserEmail))
-                .collect(Collectors.toList());
+    // FR-ST-41: Filter search results based on the academic Faculty
+    // FR-ST-42: Order the displayed document results by the count of "Downloads"
+    public List<DocumentDTO> searchDocuments(String query, Long facultyId, String sortBy, String currentUserEmail) {
+        String lowerQuery = query != null ? query.toLowerCase() : "";
+        java.util.stream.Stream<Document> stream = documentRepository.findByIsPublic(1).stream();
+        
+        if (!lowerQuery.isEmpty()) {
+            stream = stream.filter(doc -> doc.getTitle().toLowerCase().contains(lowerQuery) || 
+                                         (doc.getCourse() != null && doc.getCourse().getCode().toLowerCase().contains(lowerQuery)));
+        }
+        
+        if (facultyId != null) {
+            stream = stream.filter(doc -> doc.getFaculty() != null && doc.getFaculty().getId().equals(facultyId));
+        }
+        
+        if ("downloads".equals(sortBy)) {
+            stream = stream.sorted((a, b) -> Integer.compare(b.getDownloadCount() != null ? b.getDownloadCount() : 0, 
+                                                            a.getDownloadCount() != null ? a.getDownloadCount() : 0));
+        } else {
+            stream = stream.sorted((a, b) -> b.getUploadedAt().compareTo(a.getUploadedAt()));
+        }
+        
+        return stream.map(doc -> convertToDTO(doc, currentUserEmail))
+                    .collect(Collectors.toList());
     }
 
     public List<DocumentDTO> getAllDocuments(String currentUserEmail) {
@@ -121,11 +183,7 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
-    private DocumentDTO convertToDTO(Document doc) {
-        return convertToDTO(doc, null);
-    }
-
-    private DocumentDTO convertToDTO(Document doc, String currentUserEmail) {
+    public DocumentDTO convertToDTO(Document doc, String currentUserEmail) {
         String uploaderName = (doc.getUser() != null) ? doc.getUser().getFullName() : "Anonymous";
         String courseCode = (doc.getCourse() != null) ? doc.getCourse().getCode() : "N/A";
         Long courseId = (doc.getCourse() != null) ? doc.getCourse().getId() : null;
@@ -136,7 +194,7 @@ public class DocumentService {
         Long departmentId = (doc.getDepartment() != null) ? doc.getDepartment().getId() : null;
         String departmentName = (doc.getDepartment() != null) ? doc.getDepartment().getName() : "N/A";
 
-        String statusStr = (doc.getIsPublic() != null && doc.getIsPublic() == 1) ? "PUBLISHED" : (doc.getIsPublic() != null && doc.getIsPublic() == -1 ? "REJECTED" : "DRAFT");
+        String statusStr = doc.getStatus() != null ? doc.getStatus() : "DRAFT";
         String uploadDateStr = doc.getUploadedAt() != null ? doc.getUploadedAt().toString() : "";
         Double score = doc.getScore() != null ? doc.getScore() : 0.0;
 
@@ -176,13 +234,12 @@ public class DocumentService {
             double finalScore = score != null ? score.doubleValue() : 0.0;
             doc.setScore(finalScore);
             if (approve) {
-                doc.setIsPublic(1); // PUBLISHED
-                if (doc.getUser() != null) {
-                    int reward = (int) (finalScore * 10);
-                    doc.getUser().setCoinBalance((doc.getUser().getCoinBalance() != null ? doc.getUser().getCoinBalance() : 0) + reward);
-                }
+                doc.setStatus("PUBLISHED");
+                doc.setIsPublic(1);
+                awardCoinsForDocument(doc);
             } else {
-                doc.setIsPublic(-1); // REJECTED
+                doc.setStatus("REJECTED");
+                doc.setIsPublic(-1);
             }
             documentRepository.save(doc);
             return true;
@@ -213,6 +270,10 @@ public class DocumentService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
         return documentRepository.findById(id).map(doc -> {
+            // FR-ST-37: Only permit Likes on Published documents
+            if (!"PUBLISHED".equals(doc.getStatus())) {
+                return false;
+            }
             boolean alreadyLiked = doc.getLikedByUsers().stream().anyMatch(u -> u.getId().equals(user.getId()));
             if (alreadyLiked) {
                 doc.getLikedByUsers().removeIf(u -> u.getId().equals(user.getId()));
@@ -227,11 +288,29 @@ public class DocumentService {
     @Transactional
     public boolean deleteDocument(Long id) {
         return documentRepository.findById(id).map(doc -> {
-            // Prevent FK issues on document_likes join table
             doc.getLikedByUsers().clear();
             documentRepository.save(doc);
             documentRepository.delete(doc);
             return true;
         }).orElse(false);
+    }
+
+    // FR-ST-57: Auto-flag document after 5 negative reports
+    @Transactional
+    public boolean reportDocument(Long id) {
+        return documentRepository.findById(id).map(doc -> {
+            doc.setReportCount((doc.getReportCount() != null ? doc.getReportCount() : 0) + 1);
+            if (doc.getReportCount() >= 5) {
+                doc.setStatus("FLAGGED");
+                doc.setIsPublic(0);
+            }
+            documentRepository.save(doc);
+            return true;
+        }).orElse(false);
+    }
+
+    public void setGlobalAiThreshold(int threshold) {
+        // FR-DOC-64: Administrative control over the minimum score threshold
+        this.globalAiThreshold = threshold;
     }
 }

@@ -35,6 +35,13 @@ export function AdminPanel() {
   // Data States
   const [users, setUsers] = useState<UserData[]>([]);
   const [documents, setDocuments] = useState<NoteDocument[]>([]);
+  const [stats, setStats] = useState({
+    totalDocuments: 0,
+    flaggedDocuments: 0,
+    storageUsedGb: '0.00',
+    totalUsers: 0
+  });
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiThreshold, setAiThreshold] = useState(80);
 
@@ -48,12 +55,16 @@ export function AdminPanel() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [userData, docData] = await Promise.all([
+      const [userData, docData, statsData, logsData] = await Promise.all([
         UserService.getUsers(),
-        DocumentService.getAllDocuments()
+        DocumentService.getAllDocuments(),
+        fetch('/api/admin/stats').then(res => res.json()),
+        fetch('/api/admin/logs').then(res => res.json())
       ]);
       setUsers(userData);
       setDocuments(docData);
+      setStats(statsData);
+      setAuditLogs(logsData);
     } catch (err) {
       console.error("Admin Fetch Error:", err);
     } finally {
@@ -116,6 +127,7 @@ export function AdminPanel() {
     { icon: Book, label: 'Course Management', id: 'Courses' }, // New Item
     { icon: FileText, label: 'Notes Review', id: 'Notes' },
     { icon: Flag, label: 'Reports', id: 'Reports' },
+    { icon: Shield, label: 'Audit Logs', id: 'Logs' }, // FR-ST-62
     { icon: Settings, label: 'Settings', id: 'Settings' },
   ];
 
@@ -179,17 +191,18 @@ export function AdminPanel() {
                           <Database className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                         </div>
                         <div>
-                          <h3 className="text-slate-900 dark:text-white font-bold">Supabase Storage</h3>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">Database & Assets Usage</p>
+                          {/* FR-ST-63: Display the total database storage consumption */}
+                          <h3 className="text-slate-900 dark:text-white font-bold">PostgreSQL & S3 Storage</h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Total Cloud Consumption</p>
                         </div>
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm font-medium">
-                          <span className="text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">0.5 GB Used</span>
-                          <span className="text-slate-500 dark:text-slate-400">5 GB Free Tier</span>
+                          <span className="text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">{stats.storageUsedGb} GB Used</span>
+                          <span className="text-slate-500 dark:text-slate-400">10 GB Enterprise Tier</span>
                         </div>
                         <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-600 rounded-full transition-all duration-1000" style={{ width: '10%' }}></div>
+                          <div className="h-full bg-indigo-600 rounded-full transition-all duration-1000" style={{ width: `${(parseFloat(stats.storageUsedGb) / 10) * 100}%` }}></div>
                         </div>
                       </div>
                     </div>
@@ -200,14 +213,15 @@ export function AdminPanel() {
                           <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-500" />
                         </div>
                         <div>
-                          <h3 className="text-slate-900 dark:text-white font-bold">Action Required</h3>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">Pending Reviews</p>
+                          {/* FR-ST-53: Display an aggregated total of flagged documents */}
+                          <h3 className="text-slate-900 dark:text-white font-bold">Flagged Docs</h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Moderation Queue</p>
                         </div>
                       </div>
                       <div>
-                        <p className="text-5xl text-slate-900 dark:text-white font-black">{pendingNotesCount}</p>
+                        <p className="text-5xl text-slate-900 dark:text-white font-black">{stats.flaggedDocuments}</p>
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-tighter mt-2">
-                          {pendingNotesCount > 0 ? `${pendingNotesCount} notes waiting for approval` : 'No pending reviews'}
+                          {stats.flaggedDocuments > 0 ? `${stats.flaggedDocuments} items reported by AI or Users` : 'Clean moderation queue'}
                         </p>
                       </div>
                     </div>
@@ -383,6 +397,48 @@ export function AdminPanel() {
                       </div>
                     ))
                   )}
+                </div>
+              </div>
+            )}
+
+            {activeMenu === 'Logs' && (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <div className="mb-8">
+                  {/* FR-ST-62: The system shall display a chronological list of administrative logs */}
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Administrative Audit Logs</h2>
+                  <p className="text-sm text-slate-500 font-medium">Tracking system changes and user moderation actions</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-slate-800">
+                        <th className="pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Timestamp</th>
+                        <th className="pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Admin</th>
+                        <th className="pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Action</th>
+                        <th className="pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Target</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                      {auditLogs.map((log, idx) => (
+                        <tr key={idx} className="group">
+                          <td className="py-4 text-xs text-slate-500 font-mono">
+                            {new Date(log.timestamp).toLocaleString()}
+                          </td>
+                          <td className="py-4 text-sm font-bold text-slate-900 dark:text-white">
+                            {log.adminEmail}
+                          </td>
+                          <td className="py-4">
+                            <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-[10px] font-black uppercase text-indigo-600">
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="py-4 text-sm text-slate-600 dark:text-slate-400">
+                            {log.target}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

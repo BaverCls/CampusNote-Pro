@@ -23,4 +23,8 @@ public class UserDTO {
     private String university;
     private Boolean isActive;
     private Integer year;
+    private String createdAt;
+    private String rank;
+    private Integer totalDownloads;
+    private Integer totalLikes;
 }

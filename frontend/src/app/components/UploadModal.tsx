@@ -57,6 +57,27 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
 
   const currentUser = AuthService.getCurrentUser();
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      // FR-ST-15: PDF only
+      if (file.type !== 'application/pdf') {
+        setUploadError('Only PDF files are allowed.');
+        return;
+      }
+      
+      // FR-ST-16: 20MB limit
+      if (file.size > 20 * 1024 * 1024) {
+        setUploadError('File size exceeds 20MB limit.');
+        return;
+      }
+      
+      setUploadError('');
+      setSelectedFile(file);
+    }
+  };
+
   const handleUpload = async () => {
     if (!selectedFile || !selectedCourseId) return;
 
@@ -77,6 +98,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         courseCode: course?.code || '',
         faculty: faculty,
         filePath: `mock_path/${selectedFile.name}`,
+        fileSize: selectedFile.size
       });
 
       if (result) {
@@ -85,7 +107,6 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       }
     } catch (error) {
       if (error instanceof Error && error.message === 'SESSION_EXPIRED') {
-        // authFetch already cleared localStorage and will redirect
         return;
       }
       console.error('Document Upload Error:', error);
@@ -112,15 +133,18 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.type === 'application/pdf') {
-        setSelectedFile(file);
+      // FR-ST-15: PDF only
+      if (file.type !== 'application/pdf') {
+        setUploadError('Only PDF files are allowed.');
+        return;
       }
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      // FR-ST-16: 20MB limit
+      if (file.size > 20 * 1024 * 1024) {
+        setUploadError('File size exceeds 20MB limit.');
+        return;
+      }
+      setUploadError('');
+      setSelectedFile(file);
     }
   };
 

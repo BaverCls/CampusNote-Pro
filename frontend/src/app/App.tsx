@@ -13,6 +13,8 @@ import { AdminPanel } from './components/AdminPanel';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { LeaderboardPage } from './components/LeaderboardPage';
+import { ForgotPasswordPage } from './components/ForgotPasswordPage';
+import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { faculties } from './constants';
 import { NoteDocument } from './types';
 import { AuthService } from './services/AuthService';
@@ -245,6 +247,8 @@ export default function App() {
         } />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/profile" element={
           <PrivateRoute>
             <ProfileWrapper />

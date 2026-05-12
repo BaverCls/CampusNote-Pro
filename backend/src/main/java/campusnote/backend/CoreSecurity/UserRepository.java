@@ -15,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // Used for overall top contributors: order strictly by coinBalance desc
     List<User> findAllByOrderByCoinBalanceDesc();
+
+    Optional<User> findByResetToken(String resetToken);
 }

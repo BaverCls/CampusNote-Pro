@@ -49,6 +49,7 @@ public class Document {
     private Department department;
 
     private Integer isPublic;
+    private String status = "DRAFT";
 
     @Column(name = "score")
     private Double score = 0.0;
@@ -69,6 +70,9 @@ public class Document {
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     private java.util.Set<User> likedByUsers = new java.util.HashSet<>();
+
+    @Column(name = "report_count")
+    private Integer reportCount = 0;
 
     @PrePersist
     protected void onCreate() {

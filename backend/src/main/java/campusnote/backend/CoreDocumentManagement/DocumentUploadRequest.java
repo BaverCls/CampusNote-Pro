@@ -9,4 +9,5 @@ public class DocumentUploadRequest {
     private String courseCode;
     private String faculty;
     private String filePath;
+    private Long fileSize;
 }

@@ -149,7 +149,15 @@ export function ProfilePage() {
     const published = docs.filter((d) => d.status === 'PUBLISHED').length;
     const rejected = docs.filter((d) => d.status === 'REJECTED').length;
     const drafts = totalNotes - published - rejected;
-    const avgAiScore = totalNotes ? Math.round(docs.reduce((sum, d) => sum + (d.score ?? d.aiScore ?? 0), 0) / totalNotes) : 0;
+    
+    // FR-ST-10: Display an aggregated total of downloads received across all of the user's documents
+    const totalDownloads = docs.reduce((sum, d) => sum + (d.downloadCount || 0), 0);
+    
+    // FR-ST-13: Display an aggregated total of 'Likes' received across all of the user's documents
+    const totalLikes = docs.reduce((sum, d) => sum + (d.likeCount || 0), 0);
+
+    const avgAiScore = published ? Math.round(docs.filter(d => d.status === 'PUBLISHED').reduce((sum, d) => sum + (d.score ?? d.aiScore ?? 0), 0) / published) : 0;
+    
     const topFaculty = docs.reduce<Record<string, number>>((acc, d) => {
       const key = d.faculty || 'Unknown';
       acc[key] = (acc[key] || 0) + 1;
@@ -157,7 +165,7 @@ export function ProfilePage() {
     }, {});
     const bestDoc = [...docs].sort((a, b) => (b.score || 0) - (a.score || 0))[0];
     const topFacultyName = Object.entries(topFaculty).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
-    return { totalNotes, published, rejected, drafts, avgAiScore, topFacultyName, bestDoc };
+    return { totalNotes, published, rejected, drafts, totalDownloads, totalLikes, avgAiScore, topFacultyName, bestDoc };
   }, [docs]);
 
   const user = {
@@ -165,15 +173,17 @@ export function ProfilePage() {
     email: currentUser.email,
     bio: currentUser.bio || "No bio yet...",
     department: currentUser.departmentName || "Student",
-    university: currentUser.university || "Istanbul Arel University",
-    memberSince: "May 2026",
-    rank: currentUser.coinBalance > 5000 ? 'Platinum' : currentUser.coinBalance > 1000 ? 'Gold' : 'Bronze',
-    coins: currentUser.coinBalance,
+    // FR-ST-08: The system shall display the user's "Member since" (Registration Date) on the user profile
+    memberSince: currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "May 2026",
+    // FR-ST-32: The system shall display the user's virtual rank on the user profile
+    rank: currentUser.rank || 'ROOKIE',
+    // FR-ST-31: The system shall display the user's current CampusCoin balance on the user profile
+    coins: currentUser.coinBalance || 0,
     initials: (currentUser.fullName || currentUser.email).charAt(0).toUpperCase(),
     stats: {
       totalNotes: analytics.totalNotes,
-      downloads: analytics.published,
-      likes: analytics.rejected,
+      downloads: analytics.totalDownloads,
+      likes: analytics.totalLikes,
       avgAiScore: analytics.avgAiScore,
     },
   };

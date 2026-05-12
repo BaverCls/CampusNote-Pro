@@ -107,7 +107,11 @@ public class LeaderboardController {
                 user.getBio(),
                 user.getUniversity(),
                 user.getIsActive(),
-                user.getYear()
+                user.getYear(),
+                user.getCreatedAt() != null ? user.getCreatedAt().toString() : null,
+                user.getRank() != null ? user.getRank() : "NEWBIE",
+                0, // totalDownloads
+                0  // totalLikes
         );
     }
 }

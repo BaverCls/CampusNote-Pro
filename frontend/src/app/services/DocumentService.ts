@@ -8,6 +8,7 @@ export interface DocumentUploadData {
   courseCode: string;
   faculty: string;
   filePath: string;
+  fileSize?: number;
 }
 
 function assertValidDocumentId(id: number): void {

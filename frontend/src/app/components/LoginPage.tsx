@@ -25,6 +25,8 @@ export function LoginPage() {
         navigate('/');
       }
     } else {
+      // FR-ST-02: The system shall deny login attempts containing incorrect credentials
+      // FR-ST-03: The system shall display an error message upon a denied login attempt
       setError(response.message || 'Login failed');
     }
   };
@@ -71,6 +73,10 @@ export function LoginPage() {
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Password
                 </label>
+                {/* FR-ST-04: The system shall provide a password reset link via email */}
+                <Link to="/forgot-password" size="sm" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+                  Forgot password?
+                </Link>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />

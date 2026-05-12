@@ -3,7 +3,6 @@ package campusnote.backend.CoreDocumentManagement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,6 +21,21 @@ public class DocumentController {
             String userEmail = (String) session.getAttribute("userEmail");
             if (userEmail == null) {
                 return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+            }
+
+            // FR-ST-15: PDF format validation
+            if (request.getFilePath() == null || !request.getFilePath().toLowerCase().endsWith(".pdf")) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Only PDF files are allowed"));
+            }
+
+            // FR-ST-16: 20MB limit validation (20 * 1024 * 1024 = 20971520 bytes)
+            if (request.getFileSize() != null && request.getFileSize() > 20971520) {
+                return ResponseEntity.badRequest().body(Map.of("error", "File size exceeds 20MB limit"));
+            }
+
+            // FR-ST-19: Course Code requirement
+            if (request.getCourseCode() == null || request.getCourseCode().isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Course code is required"));
             }
 
             Document savedDoc = documentService.uploadDocument(
@@ -98,11 +112,17 @@ public class DocumentController {
         }
     }
 
+    // FR-ST-41: Filter search results based on the academic Faculty
+    // FR-ST-42: Order the displayed document results by the count of "Downloads"
     @GetMapping("/search")
-    public ResponseEntity<?> search(@RequestParam String query, HttpSession session) {
+    public ResponseEntity<?> search(
+            @RequestParam String query, 
+            @RequestParam(required = false) Long facultyId,
+            @RequestParam(required = false) String sortBy,
+            HttpSession session) {
         try {
             String email = (String) session.getAttribute("userEmail");
-            return ResponseEntity.ok(documentService.searchDocuments(query, email));
+            return ResponseEntity.ok(documentService.searchDocuments(query, facultyId, sortBy, email));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", "Search failed: " + e.getMessage()));
