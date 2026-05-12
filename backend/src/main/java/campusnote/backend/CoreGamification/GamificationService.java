@@ -40,6 +40,7 @@ public class GamificationService {
         });
     }
 
+    // FR-ST-33: Award coins based on AKTS (Logic: AKTS * 10)
     @Transactional
     public void awardCoins(Long userId, int amount) {
         userRepository.findById(userId).ifPresent(user -> {
