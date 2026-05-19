@@ -40,7 +40,7 @@ export const CourseService = {
       return await response.json();
     } catch (error) {
       console.error('Course Fetch Error:', error);
-      return [];
+      throw error;
     }
   },
 

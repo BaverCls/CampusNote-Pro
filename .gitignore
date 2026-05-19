@@ -53,3 +53,20 @@ frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
+
+
+# Local agent/test artifacts
+scratch/
+.gemini/
+.antigravity/
+test_report.json
+cdp-test.js
+cdp-test-results.json
+test-results/
+playwright-report/
+reports/
+*.log
+
+# Build outputs
+frontend/dist/
+backend/target/

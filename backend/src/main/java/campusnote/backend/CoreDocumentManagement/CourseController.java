@@ -1,6 +1,7 @@
 package campusnote.backend.CoreDocumentManagement;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -32,11 +33,15 @@ public class CourseController {
     }
 
     @GetMapping
-    public List<Course> getAll() {
-        return courseRepository.findAll();
+    @Transactional(readOnly = true)
+    public List<CourseDTO> getAll() {
+        return courseRepository.findAll().stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<?> create(@Valid @RequestBody CourseCreateRequest payload, BindingResult bindingResult, HttpSession session) {
         if (bindingResult.hasErrors()) {
             List<String> errors = bindingResult.getFieldErrors().stream()
@@ -74,7 +79,7 @@ public class CourseController {
 
             course.setDepartment(departmentOpt.get());
             course.setFaculty(facultyOpt.get());
-            return ResponseEntity.ok(courseRepository.save(course));
+            return ResponseEntity.ok(toDTO(courseRepository.save(course)));
         } catch (Exception e) {
             e.printStackTrace(); // Log to terminal
             return ResponseEntity.badRequest().body(Map.of("error", "Error creating course", "details", e.getMessage() != null ? e.getMessage() : "Unknown error"));
@@ -95,6 +100,7 @@ public class CourseController {
     }
 
     @PutMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> update(@PathVariable Long id, @Valid @RequestBody CourseCreateRequest payload, HttpSession session) {
         String role = (String) session.getAttribute("userRole");
         if (!"ADMIN".equals(role)) {
@@ -129,7 +135,48 @@ public class CourseController {
         course.setDepartment(departmentOpt.get());
         course.setFaculty(facultyOpt.get());
 
-        return ResponseEntity.ok(courseRepository.save(course));
+        return ResponseEntity.ok(toDTO(courseRepository.save(course)));
+    }
+
+    private CourseDTO toDTO(Course course) {
+        Department department = course.getDepartment();
+        Faculty faculty = course.getFaculty();
+        if (faculty == null && department != null) {
+            faculty = department.getFaculty();
+        }
+
+        return new CourseDTO(
+                course.getId(),
+                course.getName(),
+                course.getCode(),
+                course.getEcts(),
+                course.getSemester(),
+                course.getYear(),
+                department != null ? new RelatedUnitDTO(department.getId(), department.getName()) : null,
+                faculty != null ? new RelatedUnitDTO(faculty.getId(), faculty.getName()) : null
+        );
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RelatedUnitDTO {
+        private Long id;
+        private String name;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CourseDTO {
+        private Long id;
+        private String name;
+        private String code;
+        private Integer ects;
+        private Integer semester;
+        private Integer year;
+        private RelatedUnitDTO department;
+        private RelatedUnitDTO faculty;
     }
 
     @Data

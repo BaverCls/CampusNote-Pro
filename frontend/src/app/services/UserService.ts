@@ -101,8 +101,6 @@ export const UserService = {
   async getLeaderboard(facultyId?: number): Promise<UserData[]> {
     const cacheKey = facultyId ? `${this.LEADERBOARD_CACHE}_${facultyId}` : this.LEADERBOARD_CACHE;
     const url = facultyId ? `${API_URL}/users/leaderboard?facultyId=${facultyId}` : `${API_URL}/users/leaderboard`;
-    const cached = localStorage.getItem(cacheKey);
-    let initialData = cached ? JSON.parse(cached) : [];
 
     try {
       const response = await authFetch(url, {
@@ -116,8 +114,8 @@ export const UserService = {
       return data;
     } catch (error) {
       if (error instanceof Error && error.message === 'SESSION_EXPIRED') throw error;
-      console.error('Leaderboard Fetch Error (using cache):', error);
-      return initialData;
+      console.error('Leaderboard Fetch Error:', error);
+      throw error;
     }
   },
 

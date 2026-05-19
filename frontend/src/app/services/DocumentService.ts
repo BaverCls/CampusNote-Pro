@@ -39,6 +39,19 @@ interface ApiActionResponse {
   message: string;
 }
 
+const resolveApiResourceUrl = (resourceUrl?: string): string | undefined => {
+  if (!resourceUrl) return undefined;
+  if (/^https?:\/\//i.test(resourceUrl)) return resourceUrl;
+
+  const apiBase = API_URL.replace(/\/+$/, '');
+  const normalizedResource = resourceUrl.startsWith('/') ? resourceUrl : `/${resourceUrl}`;
+  const baseWithoutApi = apiBase.endsWith('/api') ? apiBase.slice(0, -4) : apiBase;
+
+  return normalizedResource === '/api' || normalizedResource.startsWith('/api/')
+    ? `${baseWithoutApi}${normalizedResource}`
+    : `${apiBase}${normalizedResource}`;
+};
+
 const toNoteDocument = (doc: DocumentApiDTO): NoteDocument => ({
   id: doc.id,
   title: doc.title,
@@ -54,8 +67,8 @@ const toNoteDocument = (doc: DocumentApiDTO): NoteDocument => ({
   likes: doc.likeCount ?? 0,
   uploadDate: doc.uploadDate,
   filePath: doc.filePath,
-  fileUrl: doc.fileUrl ? `${API_URL}${doc.fileUrl}` : undefined,
-  thumbnailUrl: doc.thumbnailUrl ? `${API_URL}${doc.thumbnailUrl}` : undefined,
+  fileUrl: resolveApiResourceUrl(doc.fileUrl),
+  thumbnailUrl: resolveApiResourceUrl(doc.thumbnailUrl),
   reportCount: doc.reportCount ?? 0,
   liked: doc.liked,
 });

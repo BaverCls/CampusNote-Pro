@@ -57,6 +57,7 @@ public class UserController {
     }
 
     @GetMapping("/leaderboard")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<UserDTO>> getLeaderboard(@RequestParam(required = false) Long facultyId) {
         try {
             List<User> raw = facultyId != null

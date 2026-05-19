@@ -51,6 +51,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
       setAllCourses(data);
     } catch (err) {
       console.error("Failed to load courses:", err);
+      setUploadError('Courses could not be loaded. Please try again.');
     } finally {
       setLoadingCourses(false);
     }
