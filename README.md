@@ -21,23 +21,79 @@ CampusNote Pro is a comprehensive academic document management platform featurin
 ## Getting Started
 
 ### 1. Backend Setup
-1. Navigate to the `backend` directory.
-2. Update `src/main/resources/application.properties` with your database credentials.
-3. Run the application:
-   ```bash
-   ./mvnw spring-boot:run
-   ```
+The backend listens on `http://localhost:8081`. The port is set by
+`backend/src/main/resources/application.properties` with `server.port=8081`.
+
+The backend expects these environment variables at startup:
+`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`,
+`SPRING_DATASOURCE_PASSWORD`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and optionally
+`FRONTEND_URL`. Spring Boot does not automatically load `backend/.env` for this
+project, so load it into the current PowerShell process before starting Maven.
+
+Windows PowerShell:
+```powershell
+cd backend
+.\run-local.ps1
+```
+
+From the project root, the same command is:
+```powershell
+.\backend\run-local.ps1
+```
+
+macOS/Linux:
+```bash
+cd backend
+set -a
+. ./.env
+set +a
+./mvnw spring-boot:run
+```
+
+Expected startup line:
+```text
+Tomcat started on port 8081 (http)
+```
 
 ### 2. Frontend Setup
 1. Navigate to the `frontend` directory.
-2. Install dependencies:
+2. Confirm `frontend/.env.local` contains:
+   ```text
+   VITE_API_BASE_URL=http://localhost:8081
+   ```
+3. Install dependencies:
    ```bash
    npm install
    ```
-3. Run the development server:
+4. Run the development server:
    ```bash
    npm run dev
    ```
+
+The frontend dev server uses `http://localhost:8000`.
+
+### Local Development Checks
+
+Backend health check:
+```powershell
+Invoke-WebRequest -Uri http://localhost:8081/actuator/health -UseBasicParsing
+```
+
+Login endpoint smoke test with intentionally invalid credentials:
+```powershell
+$body = @{ email = 'not-a-user@arel.edu.tr'; password = 'wrong-password' } | ConvertTo-Json
+Invoke-WebRequest -Uri http://localhost:8081/api/auth/login -Method Post -ContentType 'application/json' -Body $body -UseBasicParsing
+```
+
+Expected result: HTTP `401` for invalid credentials. With valid credentials,
+the endpoint should return HTTP `200`.
+
+If port `8081` is already in use on Windows PowerShell:
+```powershell
+netstat -ano | findstr :8081
+Get-Process -Id <PID>
+Stop-Process -Id <PID> -Force
+```
 
 ## Key Features
 - **Document Management**: Upload, list, and review academic documents.

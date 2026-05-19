@@ -4,6 +4,7 @@ import campusnote.backend.CoreDocumentManagement.DocumentDTO;
 import campusnote.backend.CoreDocumentManagement.DocumentRepository;
 import campusnote.backend.CoreDocumentManagement.DocumentService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
@@ -63,6 +64,7 @@ public class AdminController {
     // FR-ST-48: View a table of all registered users
     // FR-ST-49: Filter the user table based on academic Department
     @GetMapping("/users")
+    @Transactional(readOnly = true)
     public ResponseEntity<?> listUsers(HttpSession session) {
         if (!isAdmin(session)) return ResponseEntity.status(403).build();
         List<UserDTO> users = userRepository.findAll().stream()
@@ -116,6 +118,7 @@ public class AdminController {
     }
 
     @GetMapping("/flagged")
+    @Transactional(readOnly = true)
     public ResponseEntity<?> listFlagged(HttpSession session) {
         if (!isAdmin(session)) return ResponseEntity.status(403).build();
         

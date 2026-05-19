@@ -31,7 +31,7 @@ export const UserService = {
     } catch (error) {
       if (error instanceof Error && error.message === 'SESSION_EXPIRED') throw error;
       console.error('Users Fetch Error:', error);
-      return [];
+      throw error;
     }
   },
 

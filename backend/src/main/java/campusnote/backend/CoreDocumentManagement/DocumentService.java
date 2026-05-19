@@ -121,6 +121,7 @@ public class DocumentService {
         }
     }
 
+    @Transactional(readOnly = true)
     public List<DocumentDTO> getPublicDocuments(String currentUserEmail) {
         return documentRepository.findByIsPublic(1)
                 .stream()
@@ -130,6 +131,7 @@ public class DocumentService {
 
     // FR-ST-41: Filter search results based on the academic Faculty
     // FR-ST-42: Order the displayed document results by the count of "Downloads"
+    @Transactional(readOnly = true)
     public List<DocumentDTO> searchDocuments(String query, Long facultyId, String sortBy, String currentUserEmail) {
         String lowerQuery = query != null ? query.toLowerCase() : "";
         java.util.stream.Stream<Document> stream = documentRepository.findByIsPublic(1).stream();
@@ -162,6 +164,7 @@ public class DocumentService {
                     .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<DocumentDTO> getAllDocuments(String currentUserEmail) {
         return documentRepository.findAll()
                 .stream()
@@ -169,6 +172,7 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<DocumentDTO> getUserDocuments(String email) {
         return documentRepository.findByUserEmail(email)
                 .stream()
@@ -176,6 +180,7 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public DocumentDTO convertToDTO(Document doc, String currentUserEmail) {
         String uploaderName = (doc.getUser() != null) ? doc.getUser().getFullName() : "Anonymous";
         String courseCode = (doc.getCourse() != null) ? doc.getCourse().getCode() : "N/A";

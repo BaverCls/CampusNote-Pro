@@ -46,6 +46,7 @@ export function AdminPanel() {
   });
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [aiThreshold, setAiThreshold] = useState(80);
 
   // Review Action States
@@ -57,23 +58,54 @@ export function AdminPanel() {
 
   const fetchAllData = async () => {
     setLoading(true);
-    try {
-      const [userData, docData, statsData, logsData] = await Promise.all([
-        UserService.getUsers(),
-        DocumentService.getAllDocuments(),
-        authFetch(`${API_URL}/admin/stats`).then(res => res.json()),
-        authFetch(`${API_URL}/admin/logs`).then(res => res.json())
-      ]);
-      setUsers(userData);
-      setDocuments(docData);
+    setLoadErrors([]);
+
+    const readJson = async (response: Response, label: string) => {
+      if (!response.ok) throw new Error(`${label}: HTTP ${response.status}`);
+      return response.json();
+    };
+
+    const results = await Promise.allSettled([
+      UserService.getUsers(),
+      DocumentService.getAllDocuments(),
+      authFetch(`${API_URL}/admin/stats`).then((res) => readJson(res, 'Stats')),
+      authFetch(`${API_URL}/admin/logs`).then((res) => readJson(res, 'Audit logs')),
+    ]);
+
+    const errors: string[] = [];
+
+    if (results[0].status === 'fulfilled') {
+      setUsers(results[0].value);
+    } else {
+      errors.push('Users could not be loaded.');
+      console.error('Admin users fetch failed:', results[0].reason);
+    }
+
+    if (results[1].status === 'fulfilled') {
+      setDocuments(results[1].value);
+    } else {
+      errors.push('Documents could not be loaded.');
+      console.error('Admin documents fetch failed:', results[1].reason);
+    }
+
+    if (results[2].status === 'fulfilled') {
+      const statsData = results[2].value;
       setStats(statsData);
       if (typeof statsData.aiThreshold === 'number') setAiThreshold(statsData.aiThreshold);
-      setAuditLogs(logsData);
-    } catch (err) {
-      console.error("Admin Fetch Error:", err);
-    } finally {
-      setLoading(false);
+    } else {
+      errors.push('Stats could not be loaded.');
+      console.error('Admin stats fetch failed:', results[2].reason);
     }
+
+    if (results[3].status === 'fulfilled') {
+      setAuditLogs(results[3].value);
+    } else {
+      errors.push('Audit logs could not be loaded.');
+      console.error('Admin logs fetch failed:', results[3].reason);
+    }
+
+    setLoadErrors(errors);
+    setLoading(false);
   };
 
   const handleReview = async (id: number, approve: boolean) => {
@@ -197,6 +229,11 @@ export function AdminPanel() {
 
         <div className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="mx-auto space-y-8" style={{ maxWidth: "clamp(900px, 85%, 1400px)" }}>
+            {loadErrors.length > 0 && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                {loadErrors.join(' ')}
+              </div>
+            )}
             
             {activeMenu === 'Dashboard' && (
               <>
