@@ -129,9 +129,6 @@ export const UserService = {
       ? `${API_URL}/leaderboard?faculty=${encodeURIComponent(normalized)}`
       : `${API_URL}/leaderboard`;
 
-    const cached = localStorage.getItem(cacheKey);
-    const initialData = cached ? JSON.parse(cached) : [];
-
     try {
       const response = await authFetch(url, {
         mode: 'cors',
@@ -144,8 +141,8 @@ export const UserService = {
       return data;
     } catch (error) {
       if (error instanceof Error && error.message === 'SESSION_EXPIRED') throw error;
-      console.error('Faculty Leaderboard Fetch Error (using cache):', error);
-      return initialData;
+      console.error('Faculty Leaderboard Fetch Error:', error);
+      throw error;
     }
   }
 };

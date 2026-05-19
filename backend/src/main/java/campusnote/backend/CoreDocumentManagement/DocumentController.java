@@ -187,25 +187,48 @@ public class DocumentController {
                 .body(resource);
     }
 
-    @GetMapping("/{id}/thumbnail")
-    public ResponseEntity<Resource> thumbnail(@PathVariable Long id) throws Exception {
-        Path pdf = documentService.getReadablePdfPath(id, false).orElseThrow();
-        Path thumbDir = pdf.getParent().resolve("thumbnails");
-        Files.createDirectories(thumbDir);
-        Path thumbnail = thumbDir.resolve(pdf.getFileName().toString() + ".png");
-
-        if (!Files.exists(thumbnail)) {
-            try (PDDocument document = Loader.loadPDF(pdf.toFile())) {
-                PDFRenderer renderer = new PDFRenderer(document);
-                BufferedImage image = renderer.renderImageWithDPI(0, 96, ImageType.RGB);
-                ImageIO.write(image, "png", thumbnail.toFile());
+    @GetMapping(value = "/{id}/thumbnail", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<Resource> thumbnail(@PathVariable Long id) {
+        try {
+            var pdfOpt = documentService.getReadablePdfPath(id, false);
+            if (pdfOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
             }
-        }
 
-        documentService.incrementViewCount(id);
-        return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_PNG)
-                .body(new UrlResource(thumbnail.toUri()));
+            Path pdf = pdfOpt.get();
+            Path pdfParent = pdf.getParent();
+            if (pdfParent == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Path thumbDir = pdfParent.resolve("thumbnails");
+            Files.createDirectories(thumbDir);
+            Path thumbnail = thumbDir.resolve(pdf.getFileName().toString() + ".png");
+
+            if (!Files.exists(thumbnail)) {
+                try (PDDocument document = Loader.loadPDF(pdf.toFile())) {
+                    PDFRenderer renderer = new PDFRenderer(document);
+                    BufferedImage image = renderer.renderImageWithDPI(0, 96, ImageType.RGB);
+                    if (!ImageIO.write(image, "png", thumbnail.toFile())) {
+                        return ResponseEntity.notFound().build();
+                    }
+                }
+            }
+
+            Resource resource = new UrlResource(thumbnail.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            documentService.incrementViewCount(id);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_PNG)
+                    .contentLength(Files.size(thumbnail))
+                    .body(resource);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PostMapping("/{id}/like")

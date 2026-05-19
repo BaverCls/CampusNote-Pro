@@ -3,6 +3,7 @@ package campusnote.backend.CoreSecurity;
 import campusnote.backend.CoreDocumentManagement.Faculty;
 import campusnote.backend.CoreDocumentManagement.FacultyRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,6 +26,7 @@ public class LeaderboardController {
     }
 
     @GetMapping("/leaderboard")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<UserDTO>> getLeaderboard(
             @RequestParam(required = false) String faculty,
             HttpSession session
@@ -47,6 +49,7 @@ public class LeaderboardController {
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(500).build();
         }
     }

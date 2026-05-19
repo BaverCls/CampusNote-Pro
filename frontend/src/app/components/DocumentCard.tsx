@@ -40,6 +40,7 @@ export function DocumentCard({
   const [currentLikes, setCurrentLikes] = useState(likes);
   const [currentDownloads, setCurrentDownloads] = useState(downloads);
   const [isLiked, setIsLiked] = useState(liked);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -135,8 +136,13 @@ export function DocumentCard({
       {/* FR-ST-43: The system shall display a visual thumbnail preview of the document */}
       <div className="relative aspect-[4/3] mb-4 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 group-hover:border-indigo-300 dark:group-hover:border-indigo-900 transition-colors">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 flex items-center justify-center">
-          {thumbnailUrl ? (
-            <img src={thumbnailUrl} alt={`${title} first page`} className="w-full h-full object-cover object-top" />
+          {thumbnailUrl && !thumbnailFailed ? (
+            <img
+              src={thumbnailUrl}
+              alt={`${title} first page`}
+              className="w-full h-full object-cover object-top"
+              onError={() => setThumbnailFailed(true)}
+            />
           ) : isImage && previewUrl ? (
             <img src={previewUrl} alt={title} className="w-full h-full object-cover" />
           ) : isPdf ? (
