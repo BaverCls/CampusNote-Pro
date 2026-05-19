@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { UserService, UserData } from '../services/UserService';
 import { DocumentService } from '../services/DocumentService';
+import { authFetch } from '../services/AuthService';
+import { API_URL } from '../services/config';
 import { NoteDocument } from '../types';
 import { AdminCourseManager } from './AdminCourseManager';
 import { Book } from 'lucide-react'; // Import a new icon for courses
@@ -39,7 +41,8 @@ export function AdminPanel() {
     totalDocuments: 0,
     flaggedDocuments: 0,
     storageUsedGb: '0.00',
-    totalUsers: 0
+    totalUsers: 0,
+    aiThreshold: 80
   });
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,12 +61,13 @@ export function AdminPanel() {
       const [userData, docData, statsData, logsData] = await Promise.all([
         UserService.getUsers(),
         DocumentService.getAllDocuments(),
-        fetch('/api/admin/stats').then(res => res.json()),
-        fetch('/api/admin/logs').then(res => res.json())
+        authFetch(`${API_URL}/admin/stats`).then(res => res.json()),
+        authFetch(`${API_URL}/admin/logs`).then(res => res.json())
       ]);
       setUsers(userData);
       setDocuments(docData);
       setStats(statsData);
+      if (typeof statsData.aiThreshold === 'number') setAiThreshold(statsData.aiThreshold);
       setAuditLogs(logsData);
     } catch (err) {
       console.error("Admin Fetch Error:", err);
@@ -118,6 +122,20 @@ export function AdminPanel() {
       } else {
         toast.error('Document delete failed.');
       }
+    }
+  };
+
+  const handleThresholdUpdate = async () => {
+    const response = await authFetch(`${API_URL}/admin/threshold`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threshold: aiThreshold }),
+    });
+    if (response.ok) {
+      toast.success('AI threshold updated.');
+      fetchAllData();
+    } else {
+      toast.error('Threshold update failed.');
     }
   };
 
@@ -192,8 +210,8 @@ export function AdminPanel() {
                         </div>
                         <div>
                           {/* FR-ST-63: Display the total database storage consumption */}
-                          <h3 className="text-slate-900 dark:text-white font-bold">PostgreSQL & S3 Storage</h3>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">Total Cloud Consumption</p>
+                          <h3 className="text-slate-900 dark:text-white font-bold">Prototype Storage</h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Local PDF storage, S3-equivalent telemetry</p>
                         </div>
                       </div>
                       <div className="space-y-3">
@@ -465,7 +483,7 @@ export function AdminPanel() {
                         className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                       />
                     </div>
-                    <button className="w-full py-3 bg-slate-900 dark:bg-indigo-600 text-white rounded-xl font-bold hover:opacity-90 transition-all">
+                    <button onClick={handleThresholdUpdate} className="w-full py-3 bg-slate-900 dark:bg-indigo-600 text-white rounded-xl font-bold hover:opacity-90 transition-all">
                       Update Global Rules
                     </button>
                   </div>

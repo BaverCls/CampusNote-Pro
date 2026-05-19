@@ -49,14 +49,14 @@ public class AdminController {
                 .filter(doc -> "FLAGGED".equals(doc.getStatus()))
                 .count();
         
-        // Simulating storage consumption (e.g., 2MB per document)
-        double storageUsedGb = (totalDocs * 2.5) / 1024.0; 
+        double storageUsedGb = documentService.getTotalStoredBytes() / 1024.0 / 1024.0 / 1024.0;
         
         return ResponseEntity.ok(Map.of(
             "totalDocuments", totalDocs,
             "flaggedDocuments", flaggedCount,
             "storageUsedGb", String.format("%.2f", storageUsedGb),
-            "totalUsers", userRepository.count()
+            "totalUsers", userRepository.count(),
+            "aiThreshold", documentService.getGlobalAiThreshold()
         ));
     }
 

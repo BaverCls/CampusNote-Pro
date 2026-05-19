@@ -7,8 +7,7 @@ export interface DocumentUploadData {
   content?: string;
   courseCode: string;
   faculty: string;
-  filePath: string;
-  fileSize?: number;
+  file: File;
 }
 
 function assertValidDocumentId(id: number): void {
@@ -25,11 +24,14 @@ interface DocumentApiDTO {
   score?: number;
   uploaderName?: string;
   uploadDate?: string;
-  status?: 'DRAFT' | 'PUBLISHED' | 'REJECTED';
+  status?: 'DRAFT' | 'UNDER REVIEW' | 'PUBLISHED' | 'REJECTED' | 'FLAGGED' | 'FAILED';
   filePath?: string;
+  fileUrl?: string;
+  thumbnailUrl?: string;
   downloadCount?: number;
   viewCount?: number;
   likeCount?: number;
+  reportCount?: number;
   liked?: boolean;
 }
 
@@ -52,6 +54,9 @@ const toNoteDocument = (doc: DocumentApiDTO): NoteDocument => ({
   likes: doc.likeCount ?? 0,
   uploadDate: doc.uploadDate,
   filePath: doc.filePath,
+  fileUrl: doc.fileUrl ? `${API_URL}${doc.fileUrl}` : undefined,
+  thumbnailUrl: doc.thumbnailUrl ? `${API_URL}${doc.thumbnailUrl}` : undefined,
+  reportCount: doc.reportCount ?? 0,
   liked: doc.liked,
 });
 
@@ -81,6 +86,21 @@ export const DocumentService = {
       console.error('Feed Fetch Error (using cache):', error);
       return initialData;
     }
+  },
+
+  async searchDocuments(query: string, facultyId?: string, sortBy?: 'latest' | 'downloads' | 'score'): Promise<NoteDocument[]> {
+    const params = new URLSearchParams();
+    params.set('query', query || '');
+    if (facultyId) params.set('facultyId', facultyId);
+    if (sortBy) params.set('sortBy', sortBy);
+
+    const response = await authFetch(`${API_URL}/documents/search?${params.toString()}`, {
+      mode: 'cors',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload: DocumentApiDTO[] = await response.json();
+    return payload.map(toNoteDocument);
   },
 
   async getUserDocuments(): Promise<NoteDocument[]> {
@@ -123,13 +143,19 @@ export const DocumentService = {
   },
 
   async uploadDocument(data: DocumentUploadData): Promise<NoteDocument | null> {
-    if (!data.title?.trim() || !data.courseCode?.trim() || !data.filePath?.trim()) {
-      throw new Error('Validation failed: title, courseCode and filePath are required');
+    if (!data.title?.trim() || !data.courseCode?.trim() || !data.file) {
+      throw new Error('Validation failed: title, courseCode and file are required');
     }
+    const formData = new FormData();
+    formData.append('file', data.file);
+    formData.append('title', data.title);
+    formData.append('courseCode', data.courseCode);
+    formData.append('faculty', data.faculty || '');
+    if (data.content) formData.append('content', data.content);
+
     const response = await authFetch(`${API_URL}/documents/upload`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: formData,
     });
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
@@ -169,7 +195,7 @@ export const DocumentService = {
   async downloadDocument(id: number): Promise<void> {
     try {
       assertValidDocumentId(id);
-      await authFetch(`${API_URL}/documents/${id}/download`, { method: 'POST' });
+      window.location.href = `${API_URL}/documents/${id}/download`;
     } catch (error) {
       console.error('Download Document Error:', error);
     }
@@ -181,6 +207,17 @@ export const DocumentService = {
       await authFetch(`${API_URL}/documents/${id}/like`, { method: 'POST' });
     } catch (error) {
       console.error('Like Document Error:', error);
+    }
+  }
+  ,
+  async reportDocument(id: number): Promise<boolean> {
+    try {
+      assertValidDocumentId(id);
+      const response = await authFetch(`${API_URL}/documents/${id}/report`, { method: 'POST' });
+      return response.ok;
+    } catch (error) {
+      console.error('Report Document Error:', error);
+      return false;
     }
   }
   ,

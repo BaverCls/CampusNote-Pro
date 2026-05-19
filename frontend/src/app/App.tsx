@@ -66,7 +66,10 @@ function Dashboard() {
 
   const fetchFeed = () => {
     setIsLoading(true);
-    DocumentService.getFeed()
+    const request = searchQuery.trim() || facultyFilter || sortBy !== 'latest'
+      ? DocumentService.searchDocuments(searchQuery, facultyFilter, sortBy)
+      : DocumentService.getFeed();
+    request
       .then((data) => {
         setDocuments(data);
       })
@@ -79,23 +82,7 @@ function Dashboard() {
   useEffect(() => {
     fetchFeed();
     AuthService.refreshUser(); // Sync coins and profile data from DB
-  }, [currentUser?.id, currentUser?.email, navigate]);
-
-  const filteredDocuments = documents
-    .filter((doc) => {
-      const search = searchQuery.trim().toLowerCase();
-      const bySearch = !search ||
-        doc.title.toLowerCase().includes(search) ||
-        doc.courseCode.toLowerCase().includes(search) ||
-        (doc.uploaderName || 'Anonymous').toLowerCase().includes(search);
-      const byFaculty = !facultyFilter || doc.faculty === facultyFilter;
-      return bySearch && byFaculty;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'downloads') return (b.downloads || 0) - (a.downloads || 0);
-      if (sortBy === 'score') return (b.score || 0) - (a.score || 0);
-      return (new Date(b.uploadDate || 0).getTime()) - (new Date(a.uploadDate || 0).getTime());
-    });
+  }, [currentUser?.id, currentUser?.email, navigate, searchQuery, facultyFilter, sortBy]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
@@ -167,7 +154,7 @@ function Dashboard() {
                 className="flex-1 sm:flex-none px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600"
               >
                 <option value="">All Faculties</option>
-                {faculties.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+                {faculties.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
               </select>
             </div>
 
@@ -200,7 +187,7 @@ function Dashboard() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 lg:gap-6">
-              {filteredDocuments.map((doc) => (
+              {documents.map((doc) => (
                 <DocumentCard key={doc.id} {...doc} uploader={doc.uploaderName || doc.uploader || 'Anonymous'} />
               ))}
             </div>

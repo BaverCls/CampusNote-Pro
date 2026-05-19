@@ -7,8 +7,8 @@ import campusnote.backend.LiaisonAI.LiaisonService;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.annotation.PostConstruct;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -23,7 +23,7 @@ public class DocumentService {
     private final GamificationService gamificationService;
 
     // FR-DOC-64: Global AI algorithm passing score
-    private int globalAiThreshold = 60;
+    private int globalAiThreshold = 80;
 
     public DocumentService(DocumentRepository documentRepository, 
                            UserRepository userRepository,
@@ -37,24 +37,8 @@ public class DocumentService {
         this.gamificationService = gamificationService;
     }
 
-    @PostConstruct
     @Transactional
-    public void publishAllExistingDocuments() {
-        List<Document> drafts = documentRepository.findAll();
-        for (Document doc : drafts) {
-            if (doc.getStatus() == null || doc.getStatus().equals("DRAFT")) {
-                doc.setStatus("PUBLISHED");
-                doc.setIsPublic(1);
-                doc.setScore(85.0);
-                if (doc.getCourseCode() == null) doc.setCourseCode("GENERAL");
-                if (doc.getFacultyName() == null) doc.setFacultyName("GENERAL");
-                documentRepository.save(doc);
-            }
-        }
-    }
-
-    @Transactional
-    public Document uploadDocument(String title, String content, String courseCode, String faculty, String filePath, String userEmail) {
+    public Document uploadDocument(String title, String content, String courseCode, String faculty, String filePath, Long fileSize, String userEmail) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
@@ -63,6 +47,7 @@ public class DocumentService {
         doc.setContent(content);
         doc.setUser(user);
         doc.setFilePath(filePath);
+        doc.setFileSize(fileSize != null ? fileSize : 0L);
         doc.setCourseCode(courseCode != null ? courseCode : "GENERAL");
         doc.setFacultyName(faculty != null ? faculty : "GENERAL");
         
@@ -161,8 +146,16 @@ public class DocumentService {
         if ("downloads".equals(sortBy)) {
             stream = stream.sorted((a, b) -> Integer.compare(b.getDownloadCount() != null ? b.getDownloadCount() : 0, 
                                                             a.getDownloadCount() != null ? a.getDownloadCount() : 0));
+        } else if ("score".equals(sortBy)) {
+            stream = stream.sorted((a, b) -> Double.compare(b.getScore() != null ? b.getScore() : 0.0,
+                                                            a.getScore() != null ? a.getScore() : 0.0));
         } else {
-            stream = stream.sorted((a, b) -> b.getUploadedAt().compareTo(a.getUploadedAt()));
+            stream = stream.sorted((a, b) -> {
+                if (a.getUploadedAt() == null && b.getUploadedAt() == null) return 0;
+                if (a.getUploadedAt() == null) return 1;
+                if (b.getUploadedAt() == null) return -1;
+                return b.getUploadedAt().compareTo(a.getUploadedAt());
+            });
         }
         
         return stream.map(doc -> convertToDTO(doc, currentUserEmail))
@@ -220,6 +213,9 @@ public class DocumentService {
         dto.setViewCount(doc.getViewCount() != null ? doc.getViewCount() : 0);
         dto.setLikeCount(doc.getLikedByUsers().size());
         dto.setFilePath(doc.getFilePath());
+        dto.setFileUrl("/api/documents/" + doc.getId() + "/file");
+        dto.setThumbnailUrl("/api/documents/" + doc.getId() + "/thumbnail");
+        dto.setReportCount(doc.getReportCount() != null ? doc.getReportCount() : 0);
 
         if (currentUserEmail != null) {
             dto.setLiked(doc.getLikedByUsers().stream().anyMatch(u -> u.getEmail().equals(currentUserEmail)));
@@ -234,9 +230,14 @@ public class DocumentService {
             double finalScore = score != null ? score.doubleValue() : 0.0;
             doc.setScore(finalScore);
             if (approve) {
-                doc.setStatus("PUBLISHED");
-                doc.setIsPublic(1);
-                awardCoinsForDocument(doc);
+                if (finalScore >= globalAiThreshold) {
+                    doc.setStatus("PUBLISHED");
+                    doc.setIsPublic(1);
+                    awardCoinsForDocument(doc);
+                } else {
+                    doc.setStatus("FLAGGED");
+                    doc.setIsPublic(0);
+                }
             } else {
                 doc.setStatus("REJECTED");
                 doc.setIsPublic(-1);
@@ -312,5 +313,27 @@ public class DocumentService {
     public void setGlobalAiThreshold(int threshold) {
         // FR-DOC-64: Administrative control over the minimum score threshold
         this.globalAiThreshold = threshold;
+    }
+
+    public int getGlobalAiThreshold() {
+        return globalAiThreshold;
+    }
+
+    public Optional<Path> getReadablePdfPath(Long id, boolean requirePublished) {
+        return documentRepository.findById(id)
+                .filter(doc -> !requirePublished || "PUBLISHED".equals(doc.getStatus()))
+                .map(Document::getFilePath)
+                .filter(path -> path != null && !path.isBlank())
+                .map(Path::of)
+                .filter(path -> java.nio.file.Files.exists(path) && java.nio.file.Files.isReadable(path));
+    }
+
+    @Transactional(readOnly = true)
+    public long getTotalStoredBytes() {
+        return documentRepository.findAll().stream()
+                .map(Document::getFileSize)
+                .filter(size -> size != null && size > 0)
+                .mapToLong(Long::longValue)
+                .sum();
     }
 }

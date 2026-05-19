@@ -32,5 +32,6 @@ public class Course {
 
     private Integer semester;
 
+    @Column(name = "academic_year")
     private Integer year;
 }

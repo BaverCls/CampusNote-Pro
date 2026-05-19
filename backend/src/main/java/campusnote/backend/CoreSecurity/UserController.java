@@ -120,9 +120,10 @@ public class UserController {
 
     @PostMapping("/{id}/ban")
     public ResponseEntity<?> banUser(@PathVariable Long id, HttpSession session) {
-        // Simple role check (should be properly implemented in SecurityConfig)
         String email = (String) session.getAttribute("userEmail");
+        String role = (String) session.getAttribute("userRole");
         if (email == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        if (!"ADMIN".equals(role)) return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
         
         return userRepository.findById(id).map(user -> {
             user.setIsActive(false);

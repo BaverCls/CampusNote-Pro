@@ -1,18 +1,21 @@
 import { useState } from 'react';
-import { CheckCircle, Download, Eye, ThumbsUp, Clock, Sparkles, FileText, Lock, X } from 'lucide-react';
+import { CheckCircle, Download, Eye, ThumbsUp, Clock, Sparkles, FileText, Lock, X, Flag } from 'lucide-react';
 import { DocumentService } from '../services/DocumentService';
 
 interface DocumentCardProps {
   title: string;
   courseCode: string;
   uploader: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'REJECTED';
+  status: 'DRAFT' | 'UNDER REVIEW' | 'PUBLISHED' | 'REJECTED' | 'FLAGGED' | 'FAILED';
   aiScore?: number;
   downloads: number;
   views: number;
   likes: number;
   reviewStatus?: string;
   filePath?: string;
+  fileUrl?: string;
+  thumbnailUrl?: string;
+  reportCount?: number;
   id: number;
   liked?: boolean;
 }
@@ -28,6 +31,8 @@ export function DocumentCard({
   likes,
   reviewStatus,
   filePath,
+  fileUrl,
+  thumbnailUrl,
   id,
   liked,
 }: DocumentCardProps) {
@@ -38,19 +43,10 @@ export function DocumentCard({
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!filePath) return;
     
     // FR-ST-14: The system shall increase the "download count" upon clicking the download button
     await DocumentService.downloadDocument(id);
     setCurrentDownloads(prev => prev + 1);
-
-    // Trigger browser download
-    const link = document.createElement('a');
-    link.href = filePath;
-    link.download = title;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const handleLike = async (e: React.MouseEvent) => {
@@ -70,6 +66,12 @@ export function DocumentCard({
     setPreviewOpen(true);
     await DocumentService.viewDocument(id);
   };
+
+  const handleReport = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const ok = await DocumentService.reportDocument(id);
+    if (ok) alert('Report submitted for moderation review.');
+  };
   
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -85,6 +87,19 @@ export function DocumentCard({
           classes: 'text-slate-600 bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400',
           icon: Lock
         };
+      case 'UNDER REVIEW':
+        return {
+          label: 'Under Review',
+          classes: 'text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400',
+          icon: Clock
+        };
+      case 'FLAGGED':
+      case 'FAILED':
+        return {
+          label: status === 'FAILED' ? 'Failed' : 'Flagged',
+          classes: 'text-red-700 bg-red-50 dark:bg-red-500/10 dark:text-red-400',
+          icon: Flag
+        };
       case 'REJECTED':
         return {
           label: 'Rejected',
@@ -98,10 +113,11 @@ export function DocumentCard({
 
   const statusConfig = getStatusConfig(status);
   const StatusIcon = statusConfig.icon;
-  const fileLower = (filePath || '').toLowerCase();
+  const previewUrl = fileUrl || filePath;
+  const fileLower = (previewUrl || '').toLowerCase();
   const isImage = /\.(png|jpe?g|webp|gif)$/.test(fileLower);
-  const isPdf = fileLower.endsWith('.pdf');
-  const canPreview = Boolean(filePath && (isImage || isPdf || filePath.startsWith('http')));
+  const isPdf = fileLower.endsWith('.pdf') || Boolean(fileUrl);
+  const canPreview = Boolean(previewUrl && (isImage || isPdf || previewUrl.startsWith('http')));
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:shadow-lg transition-all group flex flex-col h-full">
@@ -119,8 +135,10 @@ export function DocumentCard({
       {/* FR-ST-43: The system shall display a visual thumbnail preview of the document */}
       <div className="relative aspect-[4/3] mb-4 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 group-hover:border-indigo-300 dark:group-hover:border-indigo-900 transition-colors">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 flex items-center justify-center">
-          {isImage && filePath ? (
-            <img src={filePath} alt={title} className="w-full h-full object-cover" />
+          {thumbnailUrl ? (
+            <img src={thumbnailUrl} alt={`${title} first page`} className="w-full h-full object-cover object-top" />
+          ) : isImage && previewUrl ? (
+            <img src={previewUrl} alt={title} className="w-full h-full object-cover" />
           ) : isPdf ? (
             <div className="flex flex-col items-center gap-2">
               <FileText className="w-12 h-12 text-indigo-200 dark:text-indigo-900/50" />
@@ -179,9 +197,17 @@ export function DocumentCard({
           </div>
         )}
 
-        {status === 'DRAFT' && (
+        {(status === 'FLAGGED' || status === 'FAILED') && (
+          <div className="px-3 py-2 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-lg">
+            <span className="text-sm text-red-700 dark:text-red-400 italic">
+              Awaiting moderation review
+            </span>
+          </div>
+        )}
+
+        {(status === 'DRAFT' || status === 'UNDER REVIEW') && (
           <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
-             <span className="text-sm text-slate-500 italic">Not yet submitted for review</span>
+             <span className="text-sm text-slate-500 italic">{status === 'UNDER REVIEW' ? 'Liaison AI is reviewing this document' : 'Not yet submitted for review'}</span>
           </div>
         )}
 
@@ -202,6 +228,15 @@ export function DocumentCard({
               <ThumbsUp className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
               <span className="text-xs">{currentLikes}</span>
             </button>
+            {status === 'PUBLISHED' && (
+              <button
+                onClick={handleReport}
+                className="flex items-center gap-1 hover:text-red-600 transition-colors"
+                title="Report document"
+              >
+                <Flag className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           
           <div className="flex items-center gap-2">
@@ -213,7 +248,7 @@ export function DocumentCard({
         </div>
       </div>
 
-      {previewOpen && filePath && (
+      {previewOpen && previewUrl && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="relative w-full max-w-5xl h-[85vh] bg-white dark:bg-slate-900 rounded-xl overflow-hidden">
             <button
@@ -223,11 +258,11 @@ export function DocumentCard({
               <X className="w-4 h-4" />
             </button>
             {isPdf ? (
-              <iframe src={filePath} className="w-full h-full" title={title} />
+              <iframe src={previewUrl} className="w-full h-full" title={title} />
             ) : isImage ? (
-              <img src={filePath} alt={title} className="w-full h-full object-contain bg-slate-950" />
+              <img src={previewUrl} alt={title} className="w-full h-full object-contain bg-slate-950" />
             ) : (
-              <a href={filePath} target="_blank" rel="noreferrer" className="block p-8 text-indigo-600">
+              <a href={previewUrl} target="_blank" rel="noreferrer" className="block p-8 text-indigo-600">
                 Open file in new tab
               </a>
             )}

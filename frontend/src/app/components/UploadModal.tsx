@@ -5,6 +5,7 @@ import { DocumentService } from '../services/DocumentService';
 import { AuthService } from '../services/AuthService';
 import { CourseService, Course } from '../services/CourseService';
 import { MetaService, FacultyMeta, DepartmentMeta } from '../services/MetaService';
+import { toast } from 'sonner';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -97,13 +98,30 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         title: selectedFile.name,
         courseCode: course?.code || '',
         faculty: faculty,
-        filePath: `mock_path/${selectedFile.name}`,
-        fileSize: selectedFile.size
+        file: selectedFile
       });
 
       if (result) {
+        toast.success('Upload received. Liaison AI is reviewing your PDF.');
         onClose();
         if (onSuccess) onSuccess();
+        let checks = 0;
+        const uploadedId = result.id;
+        const interval = window.setInterval(async () => {
+          checks += 1;
+          const docs = await DocumentService.getUserDocuments();
+          const uploaded = docs.find((doc) => doc.id === uploadedId);
+          if (uploaded?.status === 'PUBLISHED') {
+            toast.success(`${uploaded.title} passed AI verification and is now published.`);
+            window.clearInterval(interval);
+            if (onSuccess) onSuccess();
+          } else if (uploaded?.status === 'FLAGGED' || uploaded?.status === 'FAILED') {
+            toast.error(`${uploaded.title} needs moderation after AI review.`);
+            window.clearInterval(interval);
+          } else if (checks >= 8) {
+            window.clearInterval(interval);
+          }
+        }, 1500);
       }
     } catch (error) {
       if (error instanceof Error && error.message === 'SESSION_EXPIRED') {

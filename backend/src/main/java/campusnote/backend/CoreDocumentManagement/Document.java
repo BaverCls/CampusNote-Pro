@@ -63,6 +63,12 @@ public class Document {
     @Column(name = "file_path")
     private String filePath;
 
+    @Column(name = "file_size")
+    private Long fileSize = 0L;
+
+    @Column(name = "thumbnail_path")
+    private String thumbnailPath;
+
     @ManyToMany
     @JoinTable(
         name = "document_likes",

@@ -5,7 +5,7 @@ export interface NoteDocument {
   faculty?: string;
   uploader?: string;
   uploaderName?: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'REJECTED';
+  status: 'DRAFT' | 'UNDER REVIEW' | 'PUBLISHED' | 'REJECTED' | 'FLAGGED' | 'FAILED';
   aiScore?: number;
   score?: number;
   downloads: number;
@@ -14,6 +14,9 @@ export interface NoteDocument {
   reviewStatus?: string;
   uploadDate?: string;
   filePath?: string;
+  fileUrl?: string;
+  thumbnailUrl?: string;
+  reportCount?: number;
   liked?: boolean;
 }
 

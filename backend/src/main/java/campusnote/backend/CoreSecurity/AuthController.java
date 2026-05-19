@@ -87,6 +87,9 @@ public class AuthController {
                         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
                             return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
                         }
+                        if (Boolean.FALSE.equals(user.getIsActive())) {
+                            return ResponseEntity.status(403).body(Map.of("error", "Account suspended"));
+                        }
 
                         session.setAttribute("userId", user.getId());
                         session.setAttribute("userEmail", user.getEmail());
@@ -126,7 +129,10 @@ public class AuthController {
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
         String token = body.get("token");
-        String newPassword = body.get("password");
+        String newPassword = body.getOrDefault("newPassword", body.get("password"));
+        if (newPassword == null || newPassword.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
+        }
         
         return userRepository.findByResetToken(token).map(user -> {
             if (user.getResetTokenExpiry().isBefore(java.time.LocalDateTime.now())) {

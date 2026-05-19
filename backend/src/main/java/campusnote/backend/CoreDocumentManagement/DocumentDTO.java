@@ -31,5 +31,8 @@ public class DocumentDTO {
     private Integer viewCount;
     private Integer likeCount;
     private String filePath;
+    private String fileUrl;
+    private String thumbnailUrl;
+    private Integer reportCount;
     private boolean liked;
 }

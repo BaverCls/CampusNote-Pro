@@ -22,7 +22,7 @@ export const UserService = {
 
   async getUsers(): Promise<UserData[]> {
     try {
-      const response = await authFetch(`${API_URL}/users`, {
+      const response = await authFetch(`${API_URL}/admin/users`, {
         mode: 'cors',
         headers: { 'Accept': 'application/json' }
       });
@@ -72,7 +72,7 @@ export const UserService = {
       return false;
     }
     try {
-      const response = await authFetch(`${API_URL}/users/${id}/ban`, {
+      const response = await authFetch(`${API_URL}/admin/users/${id}/suspend`, {
         method: 'POST'
       });
       return response.ok;
