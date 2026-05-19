@@ -70,3 +70,6 @@ reports/
 # Build outputs
 frontend/dist/
 backend/target/
+
+# Local regression test artifacts
+local-test-artifacts/
