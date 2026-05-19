@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Bell, Coins, Award, ChevronDown, User, Settings, LogOut, Menu, Moon, Sun } from 'lucide-react';
 import { AuthService } from '../services/AuthService';
-import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   onProfileClick?: () => void;
@@ -12,7 +11,6 @@ interface HeaderProps {
 export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(AuthService.getCurrentUser());
 
   useEffect(() => {
@@ -95,6 +93,7 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  data-testid="user-menu-button"
                   className="flex items-center gap-2 lg:gap-3 hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors"
                 >
                   <div className="hidden lg:block text-right mr-2">
@@ -134,10 +133,11 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
                           <span className="text-sm text-slate-700 dark:text-slate-300">Settings</span>
                       </button>
                         <div className="my-1 border-t border-slate-200 dark:border-slate-800"></div>
-                        <button onClick={() => {
-                          AuthService.logout();
-                          navigate('/login');
-                        }} className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left">
+                        <button
+                          onClick={() => AuthService.logout()}
+                          data-testid="logout-button"
+                          className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left"
+                        >
                         <LogOut className="w-4 h-4 text-red-600" />
                         <span className="text-sm text-red-600">Logout</span>
                       </button>

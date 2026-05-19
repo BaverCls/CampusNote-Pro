@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Filter, SortAsc, Search } from 'lucide-react';
+import { Plus, Filter, SortAsc, Search, AlertCircle, BookOpen, TrendingUp } from 'lucide-react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -204,6 +204,158 @@ function Dashboard() {
   );
 }
 
+type DocumentListPageProps = {
+  activeItem: 'MyFaculty' | 'TopDocuments';
+  title: string;
+  description: string;
+  emptyMessage: string;
+  mode: 'faculty' | 'top';
+};
+
+function DocumentListPage({ activeItem, title, description, emptyMessage, mode }: DocumentListPageProps) {
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [documents, setDocuments] = useState<NoteDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
+
+  const currentUser = AuthService.getCurrentUser();
+  const userFacultyId = currentUser?.facultyId ? String(currentUser.facultyId) : '';
+  const userFacultyName = currentUser?.facultyName || faculties.find((faculty) => faculty.id === userFacultyId)?.name;
+  const PageIcon = mode === 'faculty' ? BookOpen : TrendingUp;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (mode === 'faculty' && !userFacultyId) {
+      setDocuments([]);
+      setErrorMessage('');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage('');
+
+    const request = mode === 'faculty'
+      ? DocumentService.searchDocuments(searchQuery, userFacultyId, 'latest')
+      : DocumentService.searchDocuments(searchQuery, undefined, 'downloads');
+
+    request
+      .then((data) => {
+        if (isMounted) setDocuments(data);
+      })
+      .catch((err) => {
+        console.error(`${title} error:`, err);
+        if (isMounted) {
+          setDocuments([]);
+          setErrorMessage('Could not load documents. Please try again later.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [mode, searchQuery, title, userFacultyId]);
+
+  const showMissingFaculty = mode === 'faculty' && !userFacultyId;
+  const showEmpty = !isLoading && !errorMessage && !showMissingFaculty && documents.length === 0;
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
+      <Sidebar
+        activeItem={activeItem}
+        onProfileClick={() => navigate('/profile')}
+      />
+      <Header
+        onProfileClick={() => navigate('/profile')}
+        onMobileMenuClick={() => setIsMobileNavOpen(true)}
+        onSearch={setSearchQuery}
+      />
+      <MobileNav
+        isOpen={isMobileNavOpen}
+        onClose={() => setIsMobileNavOpen(false)}
+        activeItem={activeItem}
+        onProfileClick={() => navigate('/profile')}
+      />
+
+      <main className="lg:ml-64 pt-16">
+        <div className="mx-auto p-4 lg:p-8" style={{ maxWidth: "clamp(900px, 85%, 1400px)" }}>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 lg:mb-8">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center">
+                  <PageIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h2 className="text-slate-900 dark:text-white">{title}</h2>
+              </div>
+              <p className="text-slate-600 dark:text-slate-400 text-sm lg:text-base">{description}</p>
+              {mode === 'faculty' && userFacultyName && (
+                <p className="text-sm text-indigo-700 dark:text-indigo-300 mt-2">
+                  Faculty: {userFacultyName}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {(showMissingFaculty || errorMessage) && (
+            <div className="mb-6 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {showMissingFaculty ? 'Faculty information is missing' : 'Unable to load documents'}
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  {showMissingFaculty
+                    ? 'Set your faculty in your profile to see documents from your faculty.'
+                    : errorMessage}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="mb-4">
+            <h3 className="text-slate-900 dark:text-white mb-4 font-semibold">
+              {mode === 'faculty' ? 'Faculty Documents' : 'Popular Documents'}
+            </h3>
+          </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 lg:gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <DocumentCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : showEmpty ? (
+            <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
+              <FileTextEmpty />
+              <p className="text-slate-700 dark:text-slate-300 font-medium">{emptyMessage}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 lg:gap-6">
+              {documents.map((doc) => (
+                <DocumentCard key={doc.id} {...doc} uploader={doc.uploaderName || doc.uploader || 'Anonymous'} />
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function FileTextEmpty() {
+  return (
+    <div className="mx-auto mb-4 w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+      <BookOpen className="w-6 h-6 text-slate-400" />
+    </div>
+  );
+}
+
 function ProfileWrapper() {
   return <ProfilePage />;
 }
@@ -249,6 +401,28 @@ export default function App() {
         <Route path="/leaderboard" element={
           <PrivateRoute>
             <LeaderboardPage />
+          </PrivateRoute>
+        } />
+        <Route path="/my-faculty" element={
+          <PrivateRoute>
+            <DocumentListPage
+              activeItem="MyFaculty"
+              title="My Faculty"
+              description="Notes shared by students from your faculty"
+              emptyMessage="No documents from your faculty yet."
+              mode="faculty"
+            />
+          </PrivateRoute>
+        } />
+        <Route path="/top-documents" element={
+          <PrivateRoute>
+            <DocumentListPage
+              activeItem="TopDocuments"
+              title="Top Documents"
+              description="Most useful notes ranked by popularity"
+              emptyMessage="No top documents yet."
+              mode="top"
+            />
           </PrivateRoute>
         } />
       </Routes>

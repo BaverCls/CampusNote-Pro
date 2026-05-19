@@ -189,6 +189,7 @@ export function AdminPanel() {
   );
 
   const pendingNotesCount = documents.filter(d => d.status === 'DRAFT' || !d.status).length;
+  const reportedDocuments = documents.filter((doc) => (doc.reportCount ?? 0) > 0 || doc.status === 'FLAGGED');
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex">
@@ -453,6 +454,73 @@ export function AdminPanel() {
                     ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeMenu === 'Reports' && (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Reports</h2>
+                    <p className="text-sm text-slate-500 font-medium">User-submitted document reports will appear here for admin review.</p>
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
+                    <Flag className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span className="text-sm font-bold text-amber-900 dark:text-amber-300">
+                      {reportedDocuments.length} Active
+                    </span>
+                  </div>
+                </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center py-20 text-slate-500">
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Loading reports...
+                  </div>
+                ) : reportedDocuments.length === 0 ? (
+                  <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl py-16 px-6 text-center">
+                    <div className="mx-auto mb-4 w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                      <Flag className="w-6 h-6 text-slate-400" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">No reports yet</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                      User-submitted document reports will appear here for admin review.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-separate border-spacing-y-2">
+                      <thead>
+                        <tr>
+                          <th className="px-4 pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Document</th>
+                          <th className="px-4 pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Course</th>
+                          <th className="px-4 pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Reports</th>
+                          <th className="px-4 pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportedDocuments.map((doc) => (
+                          <tr key={doc.id} className="group">
+                            <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 rounded-l-xl text-sm font-bold text-slate-900 dark:text-white border-y border-l border-transparent group-hover:border-amber-500/20 transition-all">
+                              {doc.title}
+                            </td>
+                            <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 text-sm text-slate-600 dark:text-slate-400 border-y border-transparent group-hover:border-amber-500/20 transition-all">
+                              {doc.courseCode}
+                            </td>
+                            <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 text-sm font-black text-amber-600 border-y border-transparent group-hover:border-amber-500/20 transition-all">
+                              {doc.reportCount ?? 0}
+                            </td>
+                            <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 rounded-r-xl border-y border-r border-transparent group-hover:border-amber-500/20 transition-all">
+                              <span className="px-2 py-1 bg-amber-100 dark:bg-amber-500/10 rounded text-[10px] font-black uppercase text-amber-700 dark:text-amber-300">
+                                {doc.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 

@@ -162,13 +162,18 @@ export const AuthService = {
   },
 
   logout() {
-    fetch(`${API_URL}/auth/logout`, { 
-      method: 'POST', 
-      credentials: 'include' 
-    }).finally(() => {
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+    localStorage.removeItem('user');
+    window.dispatchEvent(new Event('user-data-updated'));
+
+    fetch(`${API_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+    }).catch((error) => {
+      console.error('Logout request failed:', error);
     });
+
+    window.location.replace('/login');
   },
 
   saveUser(user: User) {
