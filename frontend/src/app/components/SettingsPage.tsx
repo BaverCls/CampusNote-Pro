@@ -1,10 +1,37 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Settings, User, Mail, GraduationCap, Calendar, Shield } from 'lucide-react';
+import { ArrowLeft, Settings, User, Mail, GraduationCap, Calendar, Shield, Coins, Award } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
 import { AuthService } from '../services/AuthService';
+
+function formatRole(role?: string) {
+  if (role === 'ADMIN') return 'Admin';
+  if (role === 'STUDENT') return 'Student';
+  return 'Not set';
+}
+
+function formatAccountDate(createdAt?: string) {
+  if (!createdAt) return 'Not available yet';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return 'Not available yet';
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function getProfileCompletion(user: ReturnType<typeof AuthService.getCurrentUser>) {
+  const fields = [
+    { label: 'name', complete: Boolean(user?.fullName?.trim()) },
+    { label: 'email', complete: Boolean(user?.email?.trim()) },
+    { label: 'university', complete: Boolean(user?.university?.trim()) },
+    { label: 'faculty', complete: Boolean(user?.facultyName || user?.facultyId) },
+    { label: 'department', complete: Boolean(user?.departmentName || user?.departmentId) },
+    { label: 'year', complete: Boolean(user?.year) },
+  ];
+  const completed = fields.filter((field) => field.complete).length;
+  const missing = fields.filter((field) => !field.complete).map((field) => field.label);
+  return { completed, total: fields.length, percent: Math.round((completed / fields.length) * 100), missing };
+}
 
 function SettingField({ label, value }: { label: string; value: string }) {
   return (
@@ -23,6 +50,9 @@ export function SettingsPage() {
   if (!currentUser) return null;
 
   const displayName = currentUser.fullName || currentUser.email.split('@')[0];
+  const hasCoins = currentUser.coinBalance !== undefined && currentUser.coinBalance !== null;
+  const rank = currentUser.rank;
+  const completion = getProfileCompletion(currentUser);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
@@ -74,21 +104,64 @@ export function SettingsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <SettingField label="Name" value={displayName} />
                 <SettingField label="Email" value={currentUser.email} />
+                <SettingField label="University" value={currentUser.university || 'Not set'} />
                 <SettingField label="Faculty" value={currentUser.facultyName || 'Not set'} />
                 <SettingField label="Department" value={currentUser.departmentName || 'Not set'} />
                 <SettingField label="Year" value={currentUser.year ? `Year ${currentUser.year}` : 'Not set'} />
-                <SettingField label="Role" value={currentUser.role || 'STUDENT'} />
+                <SettingField label="Role" value={formatRole(currentUser.role)} />
+                <SettingField label="Account Created" value={formatAccountDate(currentUser.createdAt)} />
+                <SettingField label="CampusCoin" value={hasCoins ? `${currentUser.coinBalance.toLocaleString()} C` : 'Not available yet'} />
+                <SettingField label="Rank" value={rank || 'Not available yet'} />
               </div>
             </section>
 
             <aside className="space-y-4">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Profile completion</h3>
+                  <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{completion.percent}%</span>
+                </div>
+                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-3">
+                  <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${completion.percent}%` }}></div>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {completion.completed}/{completion.total} completed
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                  {completion.missing.length > 0 ? `Missing: ${completion.missing.join(', ')}` : 'All required profile details are complete.'}
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <Coins className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">CampusCoin</h3>
+                </div>
+                <div className="text-2xl font-black text-slate-900 dark:text-white">
+                  {hasCoins ? currentUser.coinBalance.toLocaleString() : 'Not available yet'}
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                  Earn coins by publishing notes and helping classmates.
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <Award className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Rank</h3>
+                </div>
+                <div className="text-lg font-black uppercase text-slate-900 dark:text-white">
+                  {rank || 'Not available yet'}
+                </div>
+              </div>
+
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
                 <div className="flex items-center gap-3 mb-3">
                   <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">Profile editing</h3>
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                  Profile editing will be available soon from this settings area.
+                  Profile editing is available from your profile page. Settings keeps account details read-only for now.
                 </p>
                 <button
                   onClick={() => navigate('/profile')}

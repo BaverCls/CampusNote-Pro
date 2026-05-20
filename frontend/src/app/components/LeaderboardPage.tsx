@@ -15,6 +15,7 @@ export function LeaderboardPage() {
   const [selectedFacultyId, setSelectedFacultyId] = useState<number | null>(null);
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (!currentUser) navigate('/login');
@@ -29,15 +30,23 @@ export function LeaderboardPage() {
         const userFacultyId = currentUser?.role !== 'ADMIN' ? currentUser?.facultyId ?? null : null;
         setSelectedFacultyId(userFacultyId ?? fallbackId);
       })
-      .catch(() => setFaculties([]));
+      .catch(() => {
+        setFaculties([]);
+        setErrorMessage('Something went wrong while loading faculties.');
+      });
   }, [currentUser?.facultyId, currentUser?.role]);
 
   useEffect(() => {
     if (!selectedFacultyId) return;
     setLoading(true);
+    setErrorMessage('');
     const facultyName = faculties.find((f) => f.id === selectedFacultyId)?.name ?? 'Engineering';
     UserService.getLeaderboardForFaculty(facultyName)
       .then((data) => setUsers(data))
+      .catch(() => {
+        setUsers([]);
+        setErrorMessage('Something went wrong while loading the leaderboard.');
+      })
       .finally(() => setLoading(false));
   }, [selectedFacultyId, faculties]);
 
@@ -69,6 +78,9 @@ export function LeaderboardPage() {
               ))}
             </select>
             <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Showing: {selectedFacultyName}</p>
+            {errorMessage && (
+              <p className="mt-3 text-sm font-semibold text-red-600 dark:text-red-400">{errorMessage}</p>
+            )}
           </div>
 
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-x-auto">
@@ -85,7 +97,7 @@ export function LeaderboardPage() {
                 {loading ? (
                   <tr><td className="px-6 py-8 text-slate-500" colSpan={4}>Loading leaderboard...</td></tr>
                 ) : users.length === 0 ? (
-                  <tr><td className="px-6 py-8 text-slate-500" colSpan={4}>No contributors found for this faculty.</td></tr>
+                  <tr><td className="px-6 py-8 text-slate-500" colSpan={4}>No data yet. Try changing your filters.</td></tr>
                 ) : (
                   users.map((user, idx) => (
                     <tr key={user.id} className="border-t border-slate-100 dark:border-slate-800">

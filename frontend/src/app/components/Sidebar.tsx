@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, BookOpen, TrendingUp, Trophy, Shield } from 'lucide-react';
+import { Home, BookOpen, TrendingUp, Trophy, Shield, HelpCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../services/AuthService';
 
@@ -15,6 +15,7 @@ export function Sidebar({ activeItem = 'Dashboard', onProfileClick }: SidebarPro
     { icon: BookOpen, label: 'My Faculty', id: 'MyFaculty', path: '/my-faculty' },
     { icon: TrendingUp, label: 'Top Documents', id: 'TopDocuments', path: '/top-documents' },
     { icon: Trophy, label: 'Leaderboard', id: 'Leaderboard', path: '/leaderboard' },
+    { icon: HelpCircle, label: 'Help', id: 'Help', path: '/help' },
     ...(AuthService.isAdmin() ? [{ icon: Shield, label: 'Admin Panel', id: 'Admin', path: '/admin' }] : []),
   ];
 

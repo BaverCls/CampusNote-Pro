@@ -11,15 +11,18 @@ interface StatusTrackerProps {
 export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) {
   const [documents, setDocuments] = useState<NoteDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const currentUser = AuthService.getCurrentUser();
 
   const fetchMyDocs = async () => {
     if (!currentUser) return;
     try {
+      setErrorMessage('');
       const docs = await DocumentService.getUserDocuments();
       setDocuments(docs);
     } catch (err) {
       console.error("StatusTracker Fetch Error:", err);
+      setErrorMessage('Something went wrong while loading your uploads.');
     } finally {
       setLoading(false);
     }
@@ -34,6 +37,52 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
     (window as any).refreshStatusTracker = fetchMyDocs;
   }, []);
 
+  const getStatusDetails = (status?: NoteDocument['status']) => {
+    switch (status) {
+      case 'PUBLISHED':
+        return {
+          label: 'Published',
+          description: 'Visible to students',
+          icon: CheckCircle,
+          classes: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
+          iconClass: 'text-emerald-500',
+        };
+      case 'FLAGGED':
+        return {
+          label: 'Flagged',
+          description: 'Needs admin attention',
+          icon: AlertTriangle,
+          classes: 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300',
+          iconClass: 'text-orange-500',
+        };
+      case 'REJECTED':
+        return {
+          label: 'Rejected',
+          description: 'Not published',
+          icon: AlertTriangle,
+          classes: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300',
+          iconClass: 'text-red-500',
+        };
+      case 'UNDER REVIEW':
+        return {
+          label: 'Under Review',
+          description: 'Waiting for review',
+          icon: Clock,
+          classes: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
+          iconClass: 'text-amber-500',
+        };
+      case 'DRAFT':
+      default:
+        return {
+          label: 'Draft',
+          description: 'Not published yet',
+          icon: Clock,
+          classes: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+          iconClass: 'text-slate-500',
+        };
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 transition-all shadow-sm">
       <div className="flex items-center justify-between mb-6">
@@ -47,17 +96,26 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
         <div className="animate-pulse space-y-4">
           {[1, 2].map(i => <div key={i} className="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl" />)}
         </div>
+      ) : errorMessage ? (
+        <div className="text-center py-10">
+          <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+          <p className="text-sm text-red-600 dark:text-red-400 font-semibold">{errorMessage}</p>
+        </div>
       ) : documents.length === 0 ? (
         <div className="text-center py-10">
           <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-3">
             <FileText className="w-6 h-6 text-slate-300 dark:text-slate-700" />
           </div>
-          <p className="text-xs text-slate-500 font-medium italic">No active submissions</p>
+          <p className="text-sm text-slate-700 dark:text-slate-300 font-bold">No uploads yet</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Upload your first note to start earning CampusCoins.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {documents.map((doc) => (
-            <div key={doc.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30 transition-all group">
+          {documents.map((doc) => {
+            const statusDetails = getStatusDetails(doc.status);
+            const StatusIcon = statusDetails.icon;
+            return (
+            <div key={doc.id} className="flex items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30 transition-all group">
               <div className="flex items-center gap-4">
                 <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm group-hover:scale-110 transition-transform">
                   <FileText className="w-5 h-5 text-indigo-600" />
@@ -69,22 +127,16 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
                   <p className="text-[10px] text-slate-500 font-black uppercase tracking-tighter">
                     {doc.courseCode}
                   </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    {statusDetails.description}
+                  </p>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5">
-                  {doc.status === 'PUBLISHED' ? (
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  ) : doc.status === 'REJECTED' ? (
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
-                  ) : (
-                    <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
-                  )}
-                  <span className={`text-[11px] font-black uppercase ${
-                    doc.status === 'PUBLISHED' ? 'text-emerald-600' : 
-                    doc.status === 'REJECTED' ? 'text-red-600' : 'text-amber-600'
-                  }`}>
-                    {doc.status || 'DRAFT'}
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${statusDetails.classes}`}>
+                  <StatusIcon className={`w-4 h-4 ${statusDetails.iconClass}`} />
+                  <span className="text-[11px] font-black uppercase">
+                    {statusDetails.label}
                   </span>
                 </div>
                 {doc.status === 'PUBLISHED' && (
@@ -92,7 +144,8 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
                 )}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>

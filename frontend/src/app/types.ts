@@ -1,8 +1,10 @@
 export interface NoteDocument {
   id: number;
   title: string;
+  description?: string;
   courseCode: string;
   faculty?: string;
+  departmentName?: string;
   uploader?: string;
   uploaderName?: string;
   status: 'DRAFT' | 'UNDER REVIEW' | 'PUBLISHED' | 'REJECTED' | 'FLAGGED' | 'FAILED';

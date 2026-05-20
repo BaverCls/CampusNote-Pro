@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../services/AuthService';
 import { AppNotification, NotificationService } from '../services/NotificationService';
 
+const NOTIFICATIONS_UPDATED_EVENT = 'notifications-updated';
+
 interface HeaderProps {
   onProfileClick?: () => void;
   onMobileMenuClick?: () => void;
@@ -50,6 +52,25 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
         console.error('Notification unread count error:', error);
       });
   }, [currentUser?.id, currentUser?.email]);
+
+  useEffect(() => {
+    const refreshUnreadCount = () => {
+      if (!AuthService.getCurrentUser()) {
+        setUnreadCount(0);
+        return;
+      }
+
+      NotificationService.getUnreadCount()
+        .then(setUnreadCount)
+        .catch((error) => {
+          if (error instanceof Error && error.message === 'SESSION_EXPIRED') return;
+          console.error('Notification unread count refresh error:', error);
+        });
+    };
+
+    window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, refreshUnreadCount);
+    return () => window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, refreshUnreadCount);
+  }, []);
 
   useEffect(() => {
     if (!isNotificationOpen) return;
@@ -246,6 +267,17 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
                       );
                     })
                   )}
+                </div>
+                <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={() => {
+                      setIsNotificationOpen(false);
+                      navigate('/notifications');
+                    }}
+                    className="w-full text-center text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                  >
+                    View all notifications
+                  </button>
                 </div>
               </div>
             )}

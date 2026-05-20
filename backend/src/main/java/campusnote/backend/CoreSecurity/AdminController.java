@@ -105,14 +105,33 @@ public class AdminController {
     @PostMapping("/users/{id}/suspend")
     public ResponseEntity<?> suspendUser(@PathVariable Long id, HttpSession session) {
         if (!isAdmin(session)) return ResponseEntity.status(403).build();
+        String adminEmail = getAdminEmail(session);
         
         return userRepository.findById(id).map(user -> {
+            if (adminEmail != null && adminEmail.equalsIgnoreCase(user.getEmail())) {
+                return ResponseEntity.status(400).body(Map.of("error", "Admins cannot suspend their own account"));
+            }
             user.setIsActive(false); // FR-ST-50
             userRepository.save(user);
             
             // FR-ST-59: Audit log
-            logAction("SUSPEND_USER", getAdminEmail(session), "User ID: " + id);
+            logAction("SUSPEND_USER", adminEmail, "User ID: " + id);
             
+            return ResponseEntity.ok().build();
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/users/{id}/unsuspend")
+    public ResponseEntity<?> unsuspendUser(@PathVariable Long id, HttpSession session) {
+        if (!isAdmin(session)) return ResponseEntity.status(403).build();
+        String adminEmail = getAdminEmail(session);
+
+        return userRepository.findById(id).map(user -> {
+            user.setIsActive(true);
+            userRepository.save(user);
+
+            logAction("UNSUSPEND_USER", adminEmail, "User ID: " + id);
+
             return ResponseEntity.ok().build();
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -142,6 +161,17 @@ public class AdminController {
             logAction("DISMISS_REPORT", getAdminEmail(session), "Doc ID: " + id);
             return ResponseEntity.ok().build();
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/documents/{id}/flag")
+    public ResponseEntity<?> flagDocument(@PathVariable Long id, HttpSession session) {
+        if (!isAdmin(session)) return ResponseEntity.status(403).build();
+
+        if (documentService.flagDocument(id)) {
+            logAction("FLAG_DOCUMENT", getAdminEmail(session), "Doc ID: " + id);
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @DeleteMapping("/documents/{id}")

@@ -161,12 +161,16 @@ export function RegisterPage() {
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 ml-1">
                   University
                 </label>
-                <input
-                  type="text"
+                <select
                   disabled
                   value="Istanbul Arel University"
                   className="w-full px-4 py-4 bg-slate-100 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-800 rounded-2xl text-slate-500 cursor-not-allowed font-medium"
-                />
+                >
+                  <option value="Istanbul Arel University">Istanbul Arel University</option>
+                </select>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  CampusNote Pro is currently available for Istanbul Arel University.
+                </p>
               </div>
             </div>
 

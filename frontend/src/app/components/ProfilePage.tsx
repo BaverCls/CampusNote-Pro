@@ -12,6 +12,35 @@ import { NoteDocument } from '../types';
 import { Settings, Save, X as CloseIcon, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
+const AREL_UNIVERSITY = 'Istanbul Arel University';
+
+function formatRole(role?: string) {
+  if (role === 'ADMIN') return 'Admin';
+  if (role === 'STUDENT') return 'Student';
+  return 'Not set';
+}
+
+function formatAccountDate(createdAt?: string) {
+  if (!createdAt) return 'Not available yet';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return 'Not available yet';
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function getProfileCompletion(user: ReturnType<typeof AuthService.getCurrentUser>) {
+  const fields = [
+    { label: 'name', complete: Boolean(user?.fullName?.trim()) },
+    { label: 'email', complete: Boolean(user?.email?.trim()) },
+    { label: 'university', complete: Boolean(user?.university?.trim()) },
+    { label: 'faculty', complete: Boolean(user?.facultyName || user?.facultyId) },
+    { label: 'department', complete: Boolean(user?.departmentName || user?.departmentId) },
+    { label: 'year', complete: Boolean(user?.year) },
+  ];
+  const completed = fields.filter((field) => field.complete).length;
+  const missing = fields.filter((field) => !field.complete).map((field) => field.label);
+  return { completed, total: fields.length, percent: Math.round((completed / fields.length) * 100), missing };
+}
+
 // ─── Yardımcı: Fakülte koduna göre renk döndürür ───────────────────────────
 const FACULTY_COLORS: Record<string, string> = {
   CSE: "#7F77DD",
@@ -86,7 +115,7 @@ export function ProfilePage() {
   const [editData, setEditData] = useState({
     fullName: currentUser?.fullName || '',
     bio: currentUser?.bio || '',
-    university: currentUser?.university || 'Istanbul Arel University',
+    university: currentUser?.university || '',
     facultyId: currentUser?.facultyId?.toString() || '',
     departmentId: currentUser?.departmentId?.toString() || ''
   });
@@ -125,6 +154,7 @@ export function ProfilePage() {
     
     if (editData.departmentId) dataToSend.departmentId = Number(editData.departmentId);
     else delete dataToSend.departmentId;
+    if (!editData.university) delete dataToSend.university;
 
     const updated = await UserService.updateProfile(dataToSend);
     setIsSaving(false);
@@ -172,13 +202,14 @@ export function ProfilePage() {
     name: currentUser.fullName || currentUser.email.split('@')[0],
     email: currentUser.email,
     bio: currentUser.bio || "No bio yet...",
+    university: currentUser.university || 'Not set',
     department: currentUser.departmentName || "Student",
     // FR-ST-08: The system shall display the user's "Member since" (Registration Date) on the user profile
-    memberSince: currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "May 2026",
+    memberSince: formatAccountDate(currentUser.createdAt),
     // FR-ST-32: The system shall display the user's virtual rank on the user profile
-    rank: currentUser.rank || 'ROOKIE',
+    rank: currentUser.rank,
     // FR-ST-31: The system shall display the user's current CampusCoin balance on the user profile
-    coins: currentUser.coinBalance || 0,
+    coins: currentUser.coinBalance,
     initials: (currentUser.fullName || currentUser.email).charAt(0).toUpperCase(),
     stats: {
       totalNotes: analytics.totalNotes,
@@ -187,6 +218,7 @@ export function ProfilePage() {
       avgAiScore: analytics.avgAiScore,
     },
   };
+  const completion = getProfileCompletion(currentUser);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
@@ -207,7 +239,8 @@ export function ProfilePage() {
                   <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{user.name}</h1>
                   <div className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">{user.email}</div>
                   <div className="text-[14px] text-slate-500 dark:text-slate-500 mt-1">{user.university}</div>
-                  <div className="text-[11px] text-slate-400 dark:text-slate-600 mt-1 uppercase tracking-wider font-semibold">Member Since: {user.memberSince}</div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-600 mt-1 uppercase tracking-wider font-semibold">Account Created: {user.memberSince}</div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-600 mt-1 uppercase tracking-wider font-semibold">Role: {formatRole(currentUser.role)}</div>
                 </div>
               </div>
 
@@ -215,13 +248,13 @@ export function ProfilePage() {
                 <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-full px-4 py-2 shadow-sm">
                   <Award className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   <span className="text-sm font-bold text-indigo-900 dark:text-indigo-400 uppercase tracking-tight">
-                    {user.rank} Rank
+                    {user.rank ? `${user.rank} Rank` : 'Rank not available yet'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 shadow-sm">
                   <Coins className="w-4 h-4 text-amber-600 dark:text-amber-500" />
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">{user.coins.toLocaleString()}</span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white">{user.coins !== undefined && user.coins !== null ? user.coins.toLocaleString() : 'Not available yet'}</span>
                     <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">CampusCoin</span>
                   </div>
                 </div>
@@ -234,6 +267,24 @@ export function ProfilePage() {
               </div>
             </div>
             {user.bio && <p className="mt-6 text-slate-600 dark:text-slate-400 text-sm max-w-2xl leading-relaxed">{user.bio}</p>}
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Profile completion</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  {completion.completed}/{completion.total} completed
+                </p>
+              </div>
+              <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{completion.percent}%</span>
+            </div>
+            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${completion.percent}%` }}></div>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
+              {completion.missing.length > 0 ? `Missing: ${completion.missing.join(', ')}` : 'All required profile details are complete.'}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -300,12 +351,14 @@ export function ProfilePage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase">University</label>
-                  <input 
-                    type="text" 
-                    value="Istanbul Arel University"
-                    disabled
-                    className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-500 cursor-not-allowed font-medium"
-                  />
+                  <select
+                    value={editData.university}
+                    onChange={(e) => setEditData({...editData, university: e.target.value})}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all dark:text-white"
+                  >
+                    <option value="">Not set</option>
+                    <option value={AREL_UNIVERSITY}>{AREL_UNIVERSITY}</option>
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">

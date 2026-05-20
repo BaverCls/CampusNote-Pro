@@ -19,8 +19,10 @@ function assertValidDocumentId(id: number): void {
 interface DocumentApiDTO {
   id: number;
   title: string;
+  description?: string;
   courseCode: string;
   faculty?: string;
+  departmentName?: string;
   score?: number;
   uploaderName?: string;
   uploadDate?: string;
@@ -55,8 +57,10 @@ const resolveApiResourceUrl = (resourceUrl?: string): string | undefined => {
 const toNoteDocument = (doc: DocumentApiDTO): NoteDocument => ({
   id: doc.id,
   title: doc.title,
+  description: doc.description,
   courseCode: doc.courseCode,
   faculty: doc.faculty || '',
+  departmentName: doc.departmentName,
   uploader: doc.uploaderName || 'Anonymous',
   uploaderName: doc.uploaderName || 'Anonymous',
   status: doc.status || 'DRAFT',
@@ -196,30 +200,47 @@ export const DocumentService = {
     }
   },
 
-  async viewDocument(id: number): Promise<void> {
+  async flagDocument(id: number): Promise<boolean> {
     try {
       assertValidDocumentId(id);
-      await authFetch(`${API_URL}/documents/${id}/view`, { method: 'POST' });
+      const response = await authFetch(`${API_URL}/admin/documents/${id}/flag`, { method: 'POST' });
+      return response.ok;
     } catch (error) {
-      console.error('View Document Error:', error);
+      console.error('Document Flag Error:', error);
+      return false;
     }
   },
 
-  async downloadDocument(id: number): Promise<void> {
+  async viewDocument(id: number): Promise<boolean> {
+    try {
+      assertValidDocumentId(id);
+      const response = await authFetch(`${API_URL}/documents/${id}/view`, { method: 'POST' });
+      return response.ok;
+    } catch (error) {
+      console.error('View Document Error:', error);
+      return false;
+    }
+  },
+
+  async downloadDocument(id: number): Promise<boolean> {
     try {
       assertValidDocumentId(id);
       window.location.href = `${API_URL}/documents/${id}/download`;
+      return true;
     } catch (error) {
       console.error('Download Document Error:', error);
+      return false;
     }
   },
 
-  async likeDocument(id: number): Promise<void> {
+  async likeDocument(id: number): Promise<boolean> {
     try {
       assertValidDocumentId(id);
-      await authFetch(`${API_URL}/documents/${id}/like`, { method: 'POST' });
+      const response = await authFetch(`${API_URL}/documents/${id}/like`, { method: 'POST' });
+      return response.ok;
     } catch (error) {
       console.error('Like Document Error:', error);
+      return false;
     }
   }
   ,

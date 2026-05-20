@@ -261,6 +261,18 @@ public class DocumentService {
     }
 
     @Transactional
+    public boolean flagDocument(Long id) {
+        return documentRepository.findById(id).map(doc -> {
+            String previousStatus = doc.getStatus();
+            doc.setStatus("FLAGGED");
+            doc.setIsPublic(0);
+            documentRepository.save(doc);
+            notifyDocumentStatusChanged(doc, previousStatus);
+            return true;
+        }).orElse(false);
+    }
+
+    @Transactional
     public boolean incrementViewCount(Long id) {
         return documentRepository.findById(id).map(doc -> {
             doc.setViewCount((doc.getViewCount() == null ? 0 : doc.getViewCount()) + 1);

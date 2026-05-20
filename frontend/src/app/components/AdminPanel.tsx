@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { UserService, UserData } from '../services/UserService';
 import { DocumentService } from '../services/DocumentService';
-import { authFetch } from '../services/AuthService';
+import { AuthService, authFetch } from '../services/AuthService';
 import { API_URL } from '../services/config';
 import { NoteDocument } from '../types';
 import { AdminCourseManager } from './AdminCourseManager';
@@ -30,9 +30,11 @@ import { toast } from 'sonner';
 
 export function AdminPanel() {
   const navigate = useNavigate();
+  const currentUser = AuthService.getCurrentUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState('Dashboard');
   const [searchQuery, setSearchQuery] = useState('');
+  const [documentSearchQuery, setDocumentSearchQuery] = useState('');
   
   // Data States
   const [users, setUsers] = useState<UserData[]>([]);
@@ -49,9 +51,13 @@ export function AdminPanel() {
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [aiThreshold, setAiThreshold] = useState(80);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [documentStatusFilter, setDocumentStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'PENDING' | 'FLAGGED' | 'REJECTED'>('ALL');
+  const [userActionId, setUserActionId] = useState<number | null>(null);
 
   // Review Action States
   const [reviewScores, setReviewScores] = useState<{[key: number]: number}>({});
+  const [reviewingDocumentId, setReviewingDocumentId] = useState<number | null>(null);
+  const [reviewingAction, setReviewingAction] = useState<'approve' | 'reject' | 'flag' | null>(null);
 
   useEffect(() => {
     fetchAllData();
@@ -112,14 +118,59 @@ export function AdminPanel() {
   const handleReview = async (id: number, approve: boolean) => {
     const score = reviewScores[id] || 0;
     if (approve && score < 80) {
-      alert("Note: Per READ requirements, score must be at least 80 to publish.");
+      toast.error("Score must be at least 80 to publish.");
       return;
     }
-    
+    setReviewingDocumentId(id);
+    setReviewingAction(approve ? 'approve' : 'reject');
     const success = await DocumentService.reviewDocument(id, score, approve);
     if (success) {
       fetchAllData(); // Refresh both to update counts
+      toast.success(approve ? 'Document approved.' : 'Document rejected.');
+    } else {
+      toast.error(approve ? 'Approve failed.' : 'Reject failed.');
     }
+    setReviewingDocumentId(null);
+    setReviewingAction(null);
+  };
+
+  const handleFlagDocument = async (id: number) => {
+    setReviewingDocumentId(id);
+    setReviewingAction('flag');
+    const success = await DocumentService.flagDocument(id);
+    if (success) {
+      fetchAllData();
+      toast.success('Document flagged for admin attention.');
+    } else {
+      toast.error('Flag failed.');
+    }
+    setReviewingDocumentId(null);
+    setReviewingAction(null);
+  };
+
+  const handleToggleSuspension = async (user: UserData) => {
+    const isSelf = currentUser?.id === user.id || currentUser?.email === user.email;
+    if (isSelf) {
+      toast.error('You cannot suspend your own admin account.');
+      return;
+    }
+
+    const shouldUnsuspend = user.isActive === false;
+    const actionLabel = shouldUnsuspend ? 'unsuspend' : 'suspend';
+    if (!window.confirm(`Are you sure you want to ${actionLabel} ${user.email}?`)) return;
+
+    setUserActionId(user.id);
+    const success = shouldUnsuspend
+      ? await UserService.unsuspendUser(user.id)
+      : await UserService.banUser(user.id);
+
+    if (success) {
+      toast.success(shouldUnsuspend ? 'User unsuspended.' : 'User suspended.');
+      fetchAllData();
+    } else {
+      toast.error(shouldUnsuspend ? 'Unsuspend failed.' : 'Suspend failed.');
+    }
+    setUserActionId(null);
   };
 
   const handleBan = async (id: number) => {
@@ -191,6 +242,47 @@ export function AdminPanel() {
 
   const pendingNotesCount = documents.filter(d => d.status === 'DRAFT' || !d.status).length;
   const reportedDocuments = documents.filter((doc) => (doc.reportCount ?? 0) > 0 || doc.status === 'FLAGGED');
+  const statusFilters = [
+    { id: 'ALL', label: 'All' },
+    { id: 'PUBLISHED', label: 'Published' },
+    { id: 'PENDING', label: 'Draft/Pending' },
+    { id: 'FLAGGED', label: 'Flagged' },
+    { id: 'REJECTED', label: 'Rejected' },
+  ] as const;
+  const filteredDocuments = documents.filter((doc) => {
+    const status = doc.status || 'DRAFT';
+    const query = documentSearchQuery.trim().toLowerCase();
+    const matchesQuery = !query || [
+      doc.title,
+      doc.uploaderName,
+      doc.uploader,
+      doc.courseCode,
+      doc.faculty,
+      doc.departmentName,
+    ].some((value) => value?.toLowerCase().includes(query));
+    if (documentStatusFilter === 'ALL') return matchesQuery;
+    const matchesStatus = documentStatusFilter === 'PENDING'
+      ? status === 'DRAFT' || status === 'UNDER REVIEW'
+      : status === documentStatusFilter;
+    return matchesStatus && matchesQuery;
+  });
+  const getDocumentStatusBadge = (status?: NoteDocument['status']) => {
+    switch (status) {
+      case 'PUBLISHED':
+        return { label: 'Published', classes: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' };
+      case 'REJECTED':
+        return { label: 'Rejected', classes: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300' };
+      case 'FLAGGED':
+        return { label: 'Flagged', classes: 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300' };
+      case 'FAILED':
+        return { label: 'Failed', classes: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300' };
+      case 'UNDER REVIEW':
+        return { label: 'Under Review', classes: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' };
+      case 'DRAFT':
+      default:
+        return { label: 'Draft', classes: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' };
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex">
@@ -334,6 +426,7 @@ export function AdminPanel() {
                       <tr>
                         <th className="px-4 pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">User</th>
                         <th className="px-4 pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Email</th>
+                        <th className="px-4 pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
                         <th className="px-4 pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest">Balance</th>
                         <th className="px-4 pb-3 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                       </tr>
@@ -341,7 +434,7 @@ export function AdminPanel() {
                     <tbody>
                       {filteredUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                          <td colSpan={5} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                             No users found
                           </td>
                         </tr>
@@ -352,6 +445,15 @@ export function AdminPanel() {
                           </td>
                           <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 text-sm text-slate-600 dark:text-slate-400 border-y border-transparent group-hover:border-indigo-500/20 transition-all">
                             {user.email}
+                          </td>
+                          <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 text-sm border-y border-transparent group-hover:border-indigo-500/20 transition-all">
+                            <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase ${
+                              user.isActive === false
+                                ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300'
+                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                            }`}>
+                              {user.isActive === false ? 'Suspended' : 'Active'}
+                            </span>
                           </td>
                           <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 text-sm font-black text-amber-600 border-y border-transparent group-hover:border-indigo-500/20 transition-all">
                             {user.coinBalance} C
@@ -366,11 +468,13 @@ export function AdminPanel() {
                                 <Eye className="w-4 h-4" />
                               </button>
                               <button 
-                                onClick={() => handleBan(user.id)}
-                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg shadow-sm border border-transparent hover:border-slate-200 transition-all"
-                            title="Ban User"
+                                onClick={() => handleToggleSuspension(user)}
+                                disabled={userActionId === user.id || currentUser?.id === user.id || currentUser?.email === user.email}
+                                className="inline-flex items-center gap-1 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={user.isActive === false ? 'Unsuspend User' : 'Suspend User'}
                               >
-                                <Ban className="w-4 h-4" />
+                                {userActionId === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                                {user.isActive === false ? 'Unsuspend' : 'Suspend'}
                               </button>
                               <button
                                 onClick={() => handleDelete(user.id)}
@@ -395,15 +499,58 @@ export function AdminPanel() {
 
             {activeMenu === 'Notes' && (
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-                <div className="mb-8">
-                  <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Academic Note Review</h2>
-                  <p className="text-sm text-slate-500 font-medium">Verify documents according to READ standards</p>
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-8">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Academic Note Review</h2>
+                    <p className="text-sm text-slate-500 font-medium">Verify documents according to READ standards</p>
+                  </div>
+                  <div className="space-y-3 w-full lg:w-auto">
+                    <div className="relative w-full lg:w-80">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        value={documentSearchQuery}
+                        onChange={(e) => setDocumentSearchQuery(e.target.value)}
+                        placeholder="Search title, uploader, course..."
+                        className="w-full pl-10 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:text-white"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {statusFilters.map((filter) => (
+                        <button
+                          key={filter.id}
+                          onClick={() => setDocumentStatusFilter(filter.id)}
+                          className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                            documentStatusFilter === filter.id
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-indigo-300'
+                          }`}
+                        >
+                          {filter.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-4">
                   {documents.length === 0 ? (
                     <div className="text-center py-20 text-slate-500 italic">No documents in the system yet.</div>
+                  ) : filteredDocuments.length === 0 ? (
+                    <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl py-16 px-6 text-center">
+                      <div className="mx-auto mb-4 w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                        <FileText className="w-6 h-6 text-slate-400" />
+                      </div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">No documents match this filter</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                        Try changing your filters or search terms.
+                      </p>
+                    </div>
                   ) : (
-                    documents.map(doc => (
+                    filteredDocuments.map(doc => {
+                      const badge = getDocumentStatusBadge(doc.status);
+                      const canReview = doc.status === 'DRAFT' || doc.status === 'UNDER REVIEW' || doc.status === 'FLAGGED' || !doc.status;
+                      const isReviewing = reviewingDocumentId === doc.id;
+
+                      return (
                       <div key={doc.id} className="bg-slate-50/50 dark:bg-slate-800/30 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                           <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
@@ -411,20 +558,28 @@ export function AdminPanel() {
                           </div>
                           <div>
                             <h4 className="font-bold dark:text-white text-sm md:text-base">{doc.title}</h4>
-                            <p className="text-xs text-slate-500 font-medium">{doc.courseCode} • By {doc.uploaderName}</p>
-                            <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full mt-2 inline-block ${
-                              doc.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-700' : 
-                              doc.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              {doc.status || 'DRAFT'}
-                            </span>
+                            <p className="text-xs text-slate-500 font-medium">{doc.courseCode} - By {doc.uploaderName || 'Anonymous'}</p>
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                              <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full inline-block ${badge.classes}`}>
+                                {badge.label}
+                              </span>
+                              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300">
+                                {doc.reportCount !== undefined ? `Reports: ${doc.reportCount}` : 'Reports: Not available'}
+                              </span>
+                              {doc.status === 'FLAGGED' && (
+                                <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300">
+                                  Needs admin attention
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
 
-                        {(doc.status === 'DRAFT' || !doc.status) && (
-                          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+                        {canReview && (
+                          <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold text-slate-500 ml-1">QUALITY SCORE</span>
+                              <span className="text-[9px] text-slate-400 ml-1 mb-1">Score 0-100</span>
                               <input
                                 type="number"
                                 min="0"
@@ -432,20 +587,33 @@ export function AdminPanel() {
                                 placeholder="0-100"
                                 value={reviewScores[doc.id] || ''}
                                 onChange={(e) => setReviewScores({...reviewScores, [doc.id]: Number(e.target.value)})}
-                                className="w-16 px-2 py-1 bg-slate-50 dark:bg-slate-800 border-none rounded text-xs font-bold dark:text-white"
+                                disabled={isReviewing}
+                                className="w-20 px-2 py-1 bg-slate-50 dark:bg-slate-800 border-none rounded text-xs font-bold dark:text-white disabled:opacity-60"
                               />
                             </div>
                             <button
                               onClick={() => handleReview(doc.id, true)}
-                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
+                              disabled={isReviewing}
+                              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-wait"
                             >
-                              Approve
+                              {isReviewing && reviewingAction === 'approve' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              Approve document
                             </button>
                             <button
                               onClick={() => handleReview(doc.id, false)}
-                              className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg text-xs font-bold hover:bg-slate-300 transition-colors"
+                              disabled={isReviewing}
+                              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg text-xs font-bold hover:bg-slate-300 transition-colors disabled:opacity-60 disabled:cursor-wait"
                             >
-                              Reject
+                              {isReviewing && reviewingAction === 'reject' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              Reject document
+                            </button>
+                            <button
+                              onClick={() => handleFlagDocument(doc.id)}
+                              disabled={isReviewing}
+                              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-bold hover:bg-orange-200 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                            >
+                              {isReviewing && reviewingAction === 'flag' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              Flag document
                             </button>
                           </div>
                         )}
@@ -453,7 +621,7 @@ export function AdminPanel() {
                         {doc.status === 'PUBLISHED' && (
                           <div className="flex items-center gap-2">
                             <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm bg-emerald-50 dark:bg-emerald-500/10 px-4 py-2 rounded-xl">
-                              <CheckCircle className="w-4 h-4" /> Score: {doc.score}
+                              <CheckCircle className="w-4 h-4" /> Score: {doc.score ?? 'Not scored'}
                             </div>
                             <button
                               onClick={() => handleDeleteNote(doc.id)}
@@ -472,7 +640,8 @@ export function AdminPanel() {
                           </button>
                         )}
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

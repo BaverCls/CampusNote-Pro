@@ -1,4 +1,4 @@
-import { Home, BookOpen, TrendingUp, Trophy, X, Shield } from 'lucide-react';
+import { Home, BookOpen, TrendingUp, Trophy, X, Shield, HelpCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../services/AuthService';
 
@@ -16,6 +16,7 @@ export function MobileNav({ isOpen, onClose, activeItem = 'Dashboard', onProfile
     { icon: BookOpen, label: 'My Faculty', id: 'MyFaculty', path: '/my-faculty' },
     { icon: TrendingUp, label: 'Top Documents', id: 'TopDocuments', path: '/top-documents' },
     { icon: Trophy, label: 'Leaderboard', id: 'Leaderboard', path: '/leaderboard' },
+    { icon: HelpCircle, label: 'Help', id: 'Help', path: '/help' },
     ...(AuthService.isAdmin() ? [{ icon: Shield, label: 'Admin Panel', id: 'Admin', path: '/admin' }] : []),
   ];
 

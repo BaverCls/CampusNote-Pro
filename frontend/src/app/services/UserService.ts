@@ -15,6 +15,8 @@ export interface UserData {
   isActive?: boolean;
   role?: 'STUDENT' | 'ADMIN';
   year?: number;
+  rank?: string;
+  createdAt?: string;
 }
 
 export const UserService = {
@@ -78,6 +80,22 @@ export const UserService = {
       return response.ok;
     } catch (error) {
       console.error('Ban User Error:', error);
+      return false;
+    }
+  },
+
+  async unsuspendUser(id: number): Promise<boolean> {
+    if (!Number.isInteger(id) || id <= 0) {
+      console.error('Unsuspend User Error: invalid user id type');
+      return false;
+    }
+    try {
+      const response = await authFetch(`${API_URL}/admin/users/${id}/unsuspend`, {
+        method: 'POST'
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Unsuspend User Error:', error);
       return false;
     }
   },

@@ -16,6 +16,8 @@ import { LeaderboardPage } from './components/LeaderboardPage';
 import { ForgotPasswordPage } from './components/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { SettingsPage } from './components/SettingsPage';
+import { NotificationCenterPage } from './components/NotificationCenterPage';
+import { HelpPage } from './components/HelpPage';
 import { faculties } from './constants';
 import { NoteDocument } from './types';
 import { AuthService } from './services/AuthService';
@@ -408,6 +410,16 @@ export default function App() {
         <Route path="/settings" element={
           <PrivateRoute>
             <SettingsPage />
+          </PrivateRoute>
+        } />
+        <Route path="/notifications" element={
+          <PrivateRoute>
+            <NotificationCenterPage />
+          </PrivateRoute>
+        } />
+        <Route path="/help" element={
+          <PrivateRoute>
+            <HelpPage />
           </PrivateRoute>
         } />
         <Route path="/admin" element={

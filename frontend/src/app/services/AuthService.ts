@@ -13,6 +13,8 @@ export interface User {
   departmentName?: string;
   facultyName?: string;
   year?: number;
+  rank?: string;
+  createdAt?: string;
   token?: string;
 }
 
