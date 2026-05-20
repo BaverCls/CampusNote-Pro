@@ -3,6 +3,7 @@ package campusnote.backend.CoreDocumentManagement;
 import campusnote.backend.CoreSecurity.User;
 import campusnote.backend.CoreSecurity.UserRepository;
 import campusnote.backend.CoreGamification.GamificationService;
+import campusnote.backend.CoreNotification.NotificationService;
 import campusnote.backend.LiaisonAI.LiaisonService;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class DocumentService {
     private final CourseRepository courseRepository;
     private final LiaisonService liaisonService;
     private final GamificationService gamificationService;
+    private final NotificationService notificationService;
 
     // FR-DOC-64: Global AI algorithm passing score
     private int globalAiThreshold = 80;
@@ -29,12 +31,14 @@ public class DocumentService {
                            UserRepository userRepository,
                            CourseRepository courseRepository,
                            @Lazy LiaisonService liaisonService,
-                           GamificationService gamificationService) {
+                           GamificationService gamificationService,
+                           NotificationService notificationService) {
         this.documentRepository = documentRepository;
         this.userRepository = userRepository;
         this.courseRepository = courseRepository;
         this.liaisonService = liaisonService;
         this.gamificationService = gamificationService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -89,6 +93,7 @@ public class DocumentService {
     @Transactional
     public void finalizeAIRanking(Long docId, int score) {
         documentRepository.findById(docId).ifPresent(doc -> {
+            String previousStatus = doc.getStatus();
             doc.setScore((double) score);
             
             // FR-DOC-28: Transition to Published if threshold met
@@ -104,6 +109,7 @@ public class DocumentService {
                 doc.setIsPublic(0);
             }
             documentRepository.save(doc);
+            notifyDocumentStatusChanged(doc, previousStatus);
         });
     }
 
@@ -232,6 +238,7 @@ public class DocumentService {
     @Transactional
     public boolean reviewDocument(Long id, Integer score, boolean approve) {
         return documentRepository.findById(id).map(doc -> {
+            String previousStatus = doc.getStatus();
             double finalScore = score != null ? score.doubleValue() : 0.0;
             doc.setScore(finalScore);
             if (approve) {
@@ -248,6 +255,7 @@ public class DocumentService {
                 doc.setIsPublic(-1);
             }
             documentRepository.save(doc);
+            notifyDocumentStatusChanged(doc, previousStatus);
             return true;
         }).orElse(false);
     }
@@ -305,14 +313,47 @@ public class DocumentService {
     @Transactional
     public boolean reportDocument(Long id) {
         return documentRepository.findById(id).map(doc -> {
+            String previousStatus = doc.getStatus();
             doc.setReportCount((doc.getReportCount() != null ? doc.getReportCount() : 0) + 1);
             if (doc.getReportCount() >= 5) {
                 doc.setStatus("FLAGGED");
                 doc.setIsPublic(0);
             }
             documentRepository.save(doc);
+            notifyDocumentStatusChanged(doc, previousStatus);
             return true;
         }).orElse(false);
+    }
+
+    private void notifyDocumentStatusChanged(Document doc, String previousStatus) {
+        String status = doc.getStatus();
+        if (status == null || status.equals(previousStatus)) return;
+
+        if ("PUBLISHED".equals(status)) {
+            notificationService.createForUser(
+                    doc.getUser(),
+                    doc.getId(),
+                    "DOCUMENT_PUBLISHED",
+                    "Document published",
+                    String.format("Your document \"%s\" is now published.", doc.getTitle())
+            );
+        } else if ("FLAGGED".equals(status)) {
+            notificationService.createForUser(
+                    doc.getUser(),
+                    doc.getId(),
+                    "DOCUMENT_FLAGGED",
+                    "Document flagged",
+                    String.format("Your document \"%s\" needs admin review.", doc.getTitle())
+            );
+        } else if ("REJECTED".equals(status)) {
+            notificationService.createForUser(
+                    doc.getUser(),
+                    doc.getId(),
+                    "DOCUMENT_REJECTED",
+                    "Document rejected",
+                    String.format("Your document \"%s\" was rejected after review.", doc.getTitle())
+            );
+        }
     }
 
     public void setGlobalAiThreshold(int threshold) {

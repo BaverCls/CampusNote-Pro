@@ -36,4 +36,44 @@ class AdminControllerTest {
         verify(documentService).setGlobalAiThreshold(85);
         verify(auditLogRepository).save(any(AuditLog.class));
     }
+
+    @Test
+    void nonAdminCannotUpdateThreshold() {
+        AuditLogRepository auditLogRepository = mock(AuditLogRepository.class);
+        DocumentService documentService = mock(DocumentService.class);
+        AdminController controller = new AdminController(
+                mock(UserRepository.class),
+                mock(DocumentRepository.class),
+                documentService,
+                auditLogRepository
+        );
+
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("userRole", "STUDENT");
+        session.setAttribute("userEmail", "student@arel.edu.tr");
+
+        ResponseEntity<?> response = controller.updateThreshold(Map.of("threshold", 85), session);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verify(documentService, never()).setGlobalAiThreshold(anyInt());
+        verify(auditLogRepository, never()).save(any(AuditLog.class));
+    }
+
+    @Test
+    void nonAdminCannotListUsers() {
+        AdminController controller = new AdminController(
+                mock(UserRepository.class),
+                mock(DocumentRepository.class),
+                mock(DocumentService.class),
+                mock(AuditLogRepository.class)
+        );
+
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("userRole", "STUDENT");
+        session.setAttribute("userEmail", "student@arel.edu.tr");
+
+        ResponseEntity<?> response = controller.listUsers(session);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    }
 }

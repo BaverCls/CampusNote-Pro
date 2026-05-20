@@ -48,6 +48,7 @@ export function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [aiThreshold, setAiThreshold] = useState(80);
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
 
   // Review Action States
   const [reviewScores, setReviewScores] = useState<{[key: number]: number}>({});
@@ -200,6 +201,13 @@ export function AdminPanel() {
             <Shield className="w-6 h-6 text-indigo-500" />
             Admin Panel
           </h1>
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="lg:hidden p-2 rounded-lg hover:bg-slate-800 transition-colors"
+            aria-label="Close admin menu"
+          >
+            <X className="w-5 h-5 text-slate-300" />
+          </button>
         </div>
         <nav className="flex-1 space-y-1">
           {menuItems.map((item) => {
@@ -207,7 +215,10 @@ export function AdminPanel() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveMenu(item.id)}
+                onClick={() => {
+                  setActiveMenu(item.id);
+                  setIsMobileMenuOpen(false);
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium ${activeMenu === item.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-300 hover:bg-slate-800'}`}
               >
                 <Icon className="w-5 h-5" />
@@ -288,7 +299,7 @@ export function AdminPanel() {
                   <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                     <h3 className="text-slate-500 text-sm font-bold uppercase mb-2">User Base</h3>
                     <p className="text-3xl font-black dark:text-white">{users.length}</p>
-                    <p className="text-xs text-emerald-500 font-bold mt-1">↑ 12% from last week</p>
+                    <p className="text-xs text-slate-500 font-bold mt-1">Live platform metric</p>
                   </div>
                   <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                     <h3 className="text-slate-500 text-sm font-bold uppercase mb-2">Total Documents</h3>
@@ -328,7 +339,13 @@ export function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredUsers.map(user => (
+                      {filteredUsers.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                            No users found
+                          </td>
+                        </tr>
+                      ) : filteredUsers.map(user => (
                         <tr key={user.id} className="group">
                           <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 rounded-l-xl text-sm font-bold text-slate-900 dark:text-white border-y border-l border-transparent group-hover:border-indigo-500/20 transition-all">
                             {user.fullName || 'No Name'}
@@ -341,7 +358,11 @@ export function AdminPanel() {
                           </td>
                           <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 rounded-r-xl text-right border-y border-r border-transparent group-hover:border-indigo-500/20 transition-all">
                             <div className="flex items-center justify-end gap-2">
-                              <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg shadow-sm border border-transparent hover:border-slate-200 transition-all">
+                              <button
+                                onClick={() => setSelectedUser(user)}
+                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg shadow-sm border border-transparent hover:border-slate-200 transition-all"
+                                title="View User"
+                              >
                                 <Eye className="w-4 h-4" />
                               </button>
                               <button 
@@ -542,7 +563,13 @@ export function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                      {auditLogs.map((log, idx) => (
+                      {auditLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                            No audit logs yet
+                          </td>
+                        </tr>
+                      ) : auditLogs.map((log, idx) => (
                         <tr key={idx} className="group">
                           <td className="py-4 text-xs text-slate-500 font-mono">
                             {new Date(log.timestamp).toLocaleString()}
@@ -599,6 +626,74 @@ export function AdminPanel() {
           </div>
         </div>
       </main>
+
+      {selectedUser && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">User Details</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Read-only account information</p>
+              </div>
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                aria-label="Close user details"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">
+                  {(selectedUser.fullName || selectedUser.email).charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white">{selectedUser.fullName || 'No Name'}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{selectedUser.email}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Role</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.role || 'STUDENT'}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Status</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.isActive === false ? 'Suspended' : 'Active'}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Faculty</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.facultyName || 'Not set'}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Department</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.departmentName || 'Not set'}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Year</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.year ? `Year ${selectedUser.year}` : 'Not set'}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Coins</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.coinBalance ?? 0} C</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 dark:bg-slate-800/40 rounded-b-2xl">
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="w-full px-4 py-2.5 bg-slate-900 dark:bg-indigo-600 text-white rounded-xl font-bold hover:opacity-90 transition-opacity"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

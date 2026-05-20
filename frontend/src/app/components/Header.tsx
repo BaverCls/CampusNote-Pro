@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Search, Bell, Coins, Award, ChevronDown, User, Settings, LogOut, Menu, Moon, Sun } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, Bell, Coins, Award, ChevronDown, User, Settings, LogOut, Menu, Moon, Sun, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../services/AuthService';
+import { AppNotification, NotificationService } from '../services/NotificationService';
 
 interface HeaderProps {
   onProfileClick?: () => void;
@@ -10,8 +12,15 @@ interface HeaderProps {
 
 export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotificationLoading, setIsNotificationLoading] = useState(false);
+  const [notificationError, setNotificationError] = useState('');
   const [isDark, setIsDark] = useState(false);
   const [currentUser, setCurrentUser] = useState(AuthService.getCurrentUser());
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -27,9 +36,95 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
     return () => window.removeEventListener('user-data-updated', handleUpdate);
   }, []);
 
+  useEffect(() => {
+    if (!currentUser) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    NotificationService.getUnreadCount()
+      .then(setUnreadCount)
+      .catch((error) => {
+        if (error instanceof Error && error.message === 'SESSION_EXPIRED') return;
+        console.error('Notification unread count error:', error);
+      });
+  }, [currentUser?.id, currentUser?.email]);
+
+  useEffect(() => {
+    if (!isNotificationOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isNotificationOpen]);
+
   const toggleTheme = () => {
     setIsDark(!isDark);
     document.documentElement.classList.toggle('dark');
+  };
+
+  const loadNotifications = () => {
+    if (!currentUser) return;
+
+    setIsNotificationLoading(true);
+    setNotificationError('');
+    NotificationService.getNotifications()
+      .then(setNotifications)
+      .catch((error) => {
+        if (error instanceof Error && error.message === 'SESSION_EXPIRED') return;
+        console.error('Notification list error:', error);
+        setNotificationError('Could not load notifications.');
+      })
+      .finally(() => setIsNotificationLoading(false));
+  };
+
+  const toggleNotifications = () => {
+    setIsNotificationOpen((open) => {
+      const nextOpen = !open;
+      if (nextOpen) {
+        setIsDropdownOpen(false);
+        loadNotifications();
+      }
+      return nextOpen;
+    });
+  };
+
+  const markNotificationAsRead = async (notification: AppNotification) => {
+    if (notification.readStatus) return;
+    try {
+      const updated = await NotificationService.markAsRead(notification.id);
+      setNotifications((items) => items.map((item) => item.id === updated.id ? updated : item));
+      setUnreadCount((count) => Math.max(0, count - 1));
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SESSION_EXPIRED') return;
+      console.error('Mark notification read error:', error);
+      setNotificationError('Could not update notification.');
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      await NotificationService.markAllAsRead();
+      setNotifications((items) => items.map((item) => ({ ...item, readStatus: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SESSION_EXPIRED') return;
+      console.error('Mark all notifications read error:', error);
+      setNotificationError('Could not update notifications.');
+    }
+  };
+
+  const formatNotificationDate = (createdAt?: string | null) => {
+    if (!createdAt) return '';
+    const date = new Date(createdAt);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   return (
@@ -69,10 +164,92 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
             {isDark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-slate-600" />}
           </button>
 
-          <button className="relative p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-            <Bell className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-indigo-600 rounded-full"></span>
-          </button>
+          <div className="relative" ref={notificationRef}>
+            <button
+              onClick={toggleNotifications}
+              className="relative p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              aria-label="Notifications"
+            >
+              <Bell className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {isNotificationOpen && (
+              <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-lg shadow-lg border border-slate-200 dark:border-slate-800 py-2 z-30">
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Notifications</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{unreadCount} unread</p>
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllNotificationsAsRead}
+                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-96 overflow-y-auto">
+                  {isNotificationLoading ? (
+                    <div className="flex items-center justify-center py-8 text-sm text-slate-500">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Loading notifications...
+                    </div>
+                  ) : notificationError ? (
+                    <div className="px-4 py-6 text-sm text-red-600 dark:text-red-400">{notificationError}</div>
+                  ) : notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center">
+                      <Bell className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">No notifications yet</p>
+                    </div>
+                  ) : (
+                    notifications.map((notification) => {
+                      const content = (
+                        <div className="flex items-start gap-3">
+                          <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notification.readStatus ? 'bg-slate-300 dark:bg-slate-700' : 'bg-indigo-600'}`}></span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-white line-clamp-1">{notification.title}</p>
+                              <span className="text-[10px] text-slate-400 whitespace-nowrap">{formatNotificationDate(notification.createdAt)}</span>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">{notification.message}</p>
+                            {!notification.readStatus && (
+                              <span className="inline-block text-[10px] font-bold text-indigo-600 dark:text-indigo-400 mt-2">
+                                Mark as read
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+
+                      return notification.readStatus ? (
+                        <div
+                          key={notification.id}
+                          className="w-full px-4 py-3 text-left border-b border-slate-100 dark:border-slate-800 last:border-b-0"
+                        >
+                          {content}
+                        </div>
+                      ) : (
+                        <button
+                          key={notification.id}
+                          onClick={() => markNotificationAsRead(notification)}
+                          className="w-full px-4 py-3 text-left border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors bg-indigo-50/60 dark:bg-indigo-500/10"
+                        >
+                          {content}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="hidden sm:flex items-center gap-2 lg:gap-4 pl-3 lg:pl-6 border-l border-slate-200 dark:border-slate-700">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg">
@@ -128,7 +305,13 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
                           <User className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                           <span className="text-sm text-slate-700 dark:text-slate-300">View Profile</span>
                       </button>
-                        <button className="w-full flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left">
+                        <button
+                          onClick={() => {
+                            setIsDropdownOpen(false);
+                            navigate('/settings');
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+                        >
                           <Settings className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                           <span className="text-sm text-slate-700 dark:text-slate-300">Settings</span>
                       </button>

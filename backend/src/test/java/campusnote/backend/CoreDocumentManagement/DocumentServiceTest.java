@@ -1,6 +1,7 @@
 package campusnote.backend.CoreDocumentManagement;
 
 import campusnote.backend.CoreGamification.GamificationService;
+import campusnote.backend.CoreNotification.NotificationService;
 import campusnote.backend.CoreSecurity.User;
 import campusnote.backend.CoreSecurity.UserRepository;
 import campusnote.backend.LiaisonAI.LiaisonService;
@@ -21,6 +22,7 @@ class DocumentServiceTest {
     private CourseRepository courseRepository;
     private LiaisonService liaisonService;
     private GamificationService gamificationService;
+    private NotificationService notificationService;
     private DocumentService documentService;
 
     @BeforeEach
@@ -30,7 +32,8 @@ class DocumentServiceTest {
         courseRepository = mock(CourseRepository.class);
         liaisonService = mock(LiaisonService.class);
         gamificationService = mock(GamificationService.class);
-        documentService = new DocumentService(documentRepository, userRepository, courseRepository, liaisonService, gamificationService);
+        notificationService = mock(NotificationService.class);
+        documentService = new DocumentService(documentRepository, userRepository, courseRepository, liaisonService, gamificationService, notificationService);
     }
 
     @Test
@@ -119,6 +122,84 @@ class DocumentServiceTest {
         assertEquals(5, doc.getReportCount());
         assertEquals("FLAGGED", doc.getStatus());
         assertEquals(0, doc.getIsPublic());
+    }
+
+    @Test
+    void publishedDocumentCreatesNotification() {
+        User user = new User();
+        user.setId(1L);
+
+        Course course = new Course();
+        course.setEcts(5);
+
+        Document doc = new Document();
+        doc.setId(10L);
+        doc.setTitle("Algorithms");
+        doc.setStatus("DRAFT");
+        doc.setUser(user);
+        doc.setCourse(course);
+
+        when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
+
+        documentService.finalizeAIRanking(10L, 80);
+
+        verify(notificationService).createForUser(
+                eq(user),
+                eq(10L),
+                eq("DOCUMENT_PUBLISHED"),
+                eq("Document published"),
+                contains("Algorithms")
+        );
+    }
+
+    @Test
+    void rejectedDocumentCreatesNotification() {
+        User user = new User();
+        user.setId(1L);
+
+        Document doc = new Document();
+        doc.setId(10L);
+        doc.setTitle("Physics Notes");
+        doc.setStatus("DRAFT");
+        doc.setUser(user);
+
+        when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
+
+        assertTrue(documentService.reviewDocument(10L, 20, false));
+
+        verify(notificationService).createForUser(
+                eq(user),
+                eq(10L),
+                eq("DOCUMENT_REJECTED"),
+                eq("Document rejected"),
+                contains("Physics Notes")
+        );
+    }
+
+    @Test
+    void flaggedDocumentCreatesNotification() {
+        User user = new User();
+        user.setId(1L);
+
+        Document doc = new Document();
+        doc.setId(10L);
+        doc.setTitle("Reported Notes");
+        doc.setStatus("PUBLISHED");
+        doc.setIsPublic(1);
+        doc.setReportCount(4);
+        doc.setUser(user);
+
+        when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
+
+        assertTrue(documentService.reportDocument(10L));
+
+        verify(notificationService).createForUser(
+                eq(user),
+                eq(10L),
+                eq("DOCUMENT_FLAGGED"),
+                eq("Document flagged"),
+                contains("Reported Notes")
+        );
     }
 
     @Test

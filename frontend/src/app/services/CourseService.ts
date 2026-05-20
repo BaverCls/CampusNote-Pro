@@ -70,7 +70,6 @@ export const CourseService = {
     }
 
     try {
-      console.log('Sending Course Creation Payload:', JSON.stringify(data, null, 2));
       const response = await authFetch(`${API_URL}/courses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

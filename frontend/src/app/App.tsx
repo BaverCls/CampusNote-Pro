@@ -15,6 +15,7 @@ import { RegisterPage } from './components/RegisterPage';
 import { LeaderboardPage } from './components/LeaderboardPage';
 import { ForgotPasswordPage } from './components/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/ResetPasswordPage';
+import { SettingsPage } from './components/SettingsPage';
 import { faculties } from './constants';
 import { NoteDocument } from './types';
 import { AuthService } from './services/AuthService';
@@ -184,6 +185,12 @@ function Dashboard() {
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <DocumentCardSkeleton key={i} />
               ))}
+            </div>
+          ) : documents.length === 0 ? (
+            <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
+              <FileTextEmpty />
+              <p className="text-slate-800 dark:text-slate-200 font-semibold">No documents yet</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Uploaded and published notes will appear here.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 lg:gap-6">
@@ -396,6 +403,11 @@ export default function App() {
         <Route path="/profile" element={
           <PrivateRoute>
             <ProfileWrapper />
+          </PrivateRoute>
+        } />
+        <Route path="/settings" element={
+          <PrivateRoute>
+            <SettingsPage />
           </PrivateRoute>
         } />
         <Route path="/admin" element={
