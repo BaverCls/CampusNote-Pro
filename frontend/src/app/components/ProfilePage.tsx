@@ -294,10 +294,12 @@ export function ProfilePage() {
             <StatCard label="Avg. AI Score" value={`${user.stats.avgAiScore}/100`} />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
             <StatCard label="Draft Queue" value={analytics.drafts} />
             <StatCard label="Top Faculty" value={analytics.topFacultyName} />
             <StatCard label="Best Score" value={analytics.bestDoc ? `${analytics.bestDoc.score ?? 0}/100` : '-'} />
+            <StatCard label="Total Downloads" value={user.stats.downloads} />
+            <StatCard label="Total Likes" value={user.stats.likes} />
           </div>
 
           <div className="space-y-4">

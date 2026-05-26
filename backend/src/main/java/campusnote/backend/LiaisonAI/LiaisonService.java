@@ -2,6 +2,7 @@ package campusnote.backend.LiaisonAI;
 
 import campusnote.backend.CoreDocumentManagement.DocumentRepository;
 import campusnote.backend.CoreDocumentManagement.DocumentService;
+import campusnote.backend.CoreNotification.NotificationService;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -22,6 +23,7 @@ public class LiaisonService {
     
     private final DocumentRepository documentRepository;
     private final DocumentService documentService;
+    private final NotificationService notificationService;
 
     // Academic keywords for Istanbul Arel University courses
     private static final Map<String, List<String>> KEYWORD_DICTIONARY = Map.of(
@@ -30,9 +32,10 @@ public class LiaisonService {
         "GEN", Arrays.asList("university", "arel", "campus", "note", "study", "academic")
     );
 
-    public LiaisonService(DocumentRepository documentRepository, DocumentService documentService) {
+    public LiaisonService(DocumentRepository documentRepository, DocumentService documentService, NotificationService notificationService) {
         this.documentRepository = documentRepository;
         this.documentService = documentService;
+        this.notificationService = notificationService;
     }
 
     @Async
@@ -44,6 +47,14 @@ public class LiaisonService {
                 // Update status to UNDER REVIEW (FR-ST-24)
                 doc.setStatus("UNDER REVIEW");
                 documentRepository.save(doc);
+
+                notificationService.createForUser(
+                        doc.getUser(),
+                        doc.getId(),
+                        "DOCUMENT_UNDER_REVIEW",
+                        "AI evaluation started",
+                        String.format("Liaison AI has started reviewing your document \"%s\".", doc.getTitle())
+                );
 
                 // Simulate processing time
                 Thread.sleep(2000);

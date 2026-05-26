@@ -84,9 +84,15 @@ export function MobileNav({ isOpen, onClose, activeItem = 'Dashboard', onProfile
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
               <span className="text-white text-sm">{currentUser ? currentUser.email.charAt(0).toUpperCase() : 'G'}</span>
             </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm text-white">{currentUser?.email.split('@')[0] || 'Guest'}</p>
-              <p className="text-xs text-slate-400">View Profile</p>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-sm text-white font-semibold truncate">{currentUser?.email.split('@')[0] || 'Guest'}</p>
+              {currentUser && (
+                <div className="flex flex-col mt-0.5">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-tight truncate">{currentUser.departmentName || 'General'}</span>
+                  <span className="text-[10px] text-indigo-400 font-bold">Year {currentUser.year || '1'}</span>
+                </div>
+              )}
+              <p className="text-[10px] text-slate-500 mt-1">View Profile</p>
             </div>
           </button>
 
