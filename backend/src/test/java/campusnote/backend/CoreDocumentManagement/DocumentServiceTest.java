@@ -66,7 +66,34 @@ class DocumentServiceTest {
         assertEquals("DRAFT", saved.getStatus());
         assertEquals(0, saved.getIsPublic());
         assertEquals(1024L, saved.getFileSize());
+        assertEquals("CS101", saved.getCourseCode());
+        assertSame(course, saved.getCourse());
         verify(liaisonService).triggerEvaluation(10L);
+    }
+
+    @Test
+    void uploadRejectsUnknownCourseCode() {
+        User user = new User();
+        user.setEmail("student@arel.edu.tr");
+
+        when(userRepository.findByEmail("student@arel.edu.tr")).thenReturn(Optional.of(user));
+        when(courseRepository.findByCode("MADEUP101")).thenReturn(Optional.empty());
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () ->
+                documentService.uploadDocument(
+                        "notes.pdf",
+                        null,
+                        "MADEUP101",
+                        "Engineering",
+                        "uploads/notes.pdf",
+                        1024L,
+                        "student@arel.edu.tr"
+                )
+        );
+
+        assertEquals("Course code must match an existing course", error.getMessage());
+        verify(documentRepository, never()).save(any(Document.class));
+        verify(liaisonService, never()).triggerEvaluation(anyLong());
     }
 
     @Test

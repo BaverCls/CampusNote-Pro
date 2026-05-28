@@ -3,6 +3,22 @@ import { Shield, Mail, Lock, ArrowRight, AlertCircle, CheckCircle2, User } from 
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthService } from '../services/AuthService';
 import { MetaService, FacultyMeta, DepartmentMeta } from '../services/MetaService';
+import { faculties as staticFaculties, departments as staticDepartments } from '../constants';
+
+const fallbackFaculties: FacultyMeta[] = staticFaculties.map(f => ({
+  id: Number(f.id),
+  name: f.name
+}));
+
+const fallbackDepartments: DepartmentMeta[] = staticDepartments.map(d => ({
+  id: Number(d.id),
+  name: d.name,
+  facultyId: d.facultyId ? Number(d.facultyId) : null
+}));
+
+function hasUsableMetadata(facs: FacultyMeta[], depts: DepartmentMeta[]) {
+  return facs.length > 0 && depts.some(dept => dept.facultyId != null);
+}
 
 export function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -21,10 +37,21 @@ export function RegisterPage() {
   useEffect(() => {
     Promise.all([MetaService.getFaculties(), MetaService.getDepartments()])
       .then(([facs, depts]) => {
-        setFaculties(facs);
-        setDepartments(depts);
+        if (hasUsableMetadata(facs, depts)) {
+          setFaculties(facs);
+          setDepartments(depts);
+          return;
+        }
+
+        console.warn('Faculty/department API returned no usable metadata, falling back to static constants.');
+        setFaculties(fallbackFaculties);
+        setDepartments(fallbackDepartments);
       })
-      .catch(() => setError('Failed to load faculty/department list'));
+      .catch((err) => {
+        console.warn('Failed to load faculty/department list from API, falling back to static constants:', err);
+        setFaculties(fallbackFaculties);
+        setDepartments(fallbackDepartments);
+      });
   }, []);
 
   const handleRegister = async (e: React.FormEvent) => {

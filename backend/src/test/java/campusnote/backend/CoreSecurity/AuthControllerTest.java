@@ -33,7 +33,7 @@ class AuthControllerTest {
 
         User user = new User();
         user.setEmail("student@arel.edu.tr");
-        user.setPassword(passwordEncoder.encode("secret123"));
+        user.setPasswordHash(passwordEncoder.encode("secret123"));
         user.setIsActive(false);
 
         LoginRequestDTO request = new LoginRequestDTO();
@@ -114,7 +114,7 @@ class AuthControllerTest {
 
         User user = new User();
         user.setEmail("student@arel.edu.tr");
-        user.setPassword("oldEncodedPassword");
+        user.setPasswordHash("oldEncodedPassword");
         user.setResetToken("valid-token");
         user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
 
@@ -126,7 +126,7 @@ class AuthControllerTest {
         ));
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertTrue(passwordEncoder.matches("newSecretPassword", user.getPassword()));
+        assertTrue(passwordEncoder.matches("newSecretPassword", user.getPasswordHash()));
         assertNull(user.getResetToken());
         assertNull(user.getResetTokenExpiry());
         verify(userRepository).save(user);
@@ -149,7 +149,7 @@ class AuthControllerTest {
 
         User user = new User();
         user.setEmail("student@arel.edu.tr");
-        user.setPassword("oldEncodedPassword");
+        user.setPasswordHash("oldEncodedPassword");
         user.setResetToken("expired-token");
         user.setResetTokenExpiry(LocalDateTime.now().minusMinutes(1));
 

@@ -74,7 +74,7 @@ export function LoginPage() {
                   Password
                 </label>
                 {/* FR-ST-04: The system shall provide a password reset link via email */}
-                <Link to="/forgot-password" size="sm" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+                <Link to="/forgot-password" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
                   Forgot password?
                 </Link>
               </div>

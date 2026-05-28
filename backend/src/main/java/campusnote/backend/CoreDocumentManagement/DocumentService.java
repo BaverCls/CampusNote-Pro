@@ -45,6 +45,9 @@ public class DocumentService {
     public Document uploadDocument(String title, String content, String courseCode, String faculty, String filePath, Long fileSize, String userEmail) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+        String normalizedCourseCode = courseCode != null ? courseCode.trim().toUpperCase() : "";
+        Course course = courseRepository.findByCode(normalizedCourseCode)
+                .orElseThrow(() -> new IllegalArgumentException("Course code must match an existing course"));
 
         Document doc = new Document();
         doc.setTitle(title);
@@ -52,31 +55,8 @@ public class DocumentService {
         doc.setUser(user);
         doc.setFilePath(filePath);
         doc.setFileSize(fileSize != null ? fileSize : 0L);
-        doc.setCourseCode(courseCode != null ? courseCode : "GENERAL");
-        doc.setFacultyName(faculty != null ? faculty : "GENERAL");
-        
-        // Course lookup
-        if (courseCode != null && !courseCode.isBlank()) {
-            Optional<Course> courseOpt = courseRepository.findByCode(courseCode);
-            if (courseOpt.isPresent()) {
-                Course course = courseOpt.get();
-                doc.setCourse(course);
-                if (course.getDepartment() != null) {
-                    doc.setDepartment(course.getDepartment());
-                    if (course.getDepartment().getFaculty() != null) {
-                        doc.setFaculty(course.getDepartment().getFaculty());
-                        doc.setFacultyName(course.getDepartment().getFaculty().getName());
-                    }
-                }
-            }
-        }
-
-        if (doc.getFaculty() == null && user.getFaculty() != null) {
-            doc.setFaculty(user.getFaculty());
-        }
-        if (doc.getDepartment() == null && user.getDepartment() != null) {
-            doc.setDepartment(user.getDepartment());
-        }
+        doc.setCourseCode(course.getCode());
+        doc.setCourse(course);
         
         doc.setType(1); 
         doc.setIsPublic(0); 
@@ -148,7 +128,10 @@ public class DocumentService {
         }
         
         if (facultyId != null) {
-            stream = stream.filter(doc -> doc.getFaculty() != null && doc.getFaculty().getId().equals(facultyId));
+            stream = stream.filter(doc -> {
+                Faculty faculty = getFacultyFromCourse(doc);
+                return faculty != null && faculty.getId().equals(facultyId);
+            });
         }
         
         if ("downloads".equals(sortBy)) {
@@ -193,10 +176,12 @@ public class DocumentService {
         Long courseId = (doc.getCourse() != null) ? doc.getCourse().getId() : null;
         Long userId = (doc.getUser() != null) ? doc.getUser().getId() : null;
         
-        Long facultyId = (doc.getFaculty() != null) ? doc.getFaculty().getId() : null;
-        String facultyName = (doc.getFaculty() != null) ? doc.getFaculty().getName() : "N/A";
-        Long departmentId = (doc.getDepartment() != null) ? doc.getDepartment().getId() : null;
-        String departmentName = (doc.getDepartment() != null) ? doc.getDepartment().getName() : "N/A";
+        Faculty faculty = getFacultyFromCourse(doc);
+        Department department = getDepartmentFromCourse(doc);
+        Long facultyId = (faculty != null) ? faculty.getId() : null;
+        String facultyName = (faculty != null) ? faculty.getName() : "N/A";
+        Long departmentId = (department != null) ? department.getId() : null;
+        String departmentName = (department != null) ? department.getName() : "N/A";
 
         String statusStr = doc.getStatus() != null ? doc.getStatus() : "DRAFT";
         String uploadDateStr = doc.getUploadedAt() != null ? doc.getUploadedAt().toString() : "";
@@ -393,5 +378,17 @@ public class DocumentService {
                 .filter(size -> size != null && size > 0)
                 .mapToLong(Long::longValue)
                 .sum();
+    }
+
+    private Department getDepartmentFromCourse(Document doc) {
+        return doc.getCourse() != null ? doc.getCourse().getDepartment() : null;
+    }
+
+    private Faculty getFacultyFromCourse(Document doc) {
+        Department department = getDepartmentFromCourse(doc);
+        if (department != null && department.getFaculty() != null) {
+            return department.getFaculty();
+        }
+        return doc.getCourse() != null ? doc.getCourse().getFaculty() : null;
     }
 }

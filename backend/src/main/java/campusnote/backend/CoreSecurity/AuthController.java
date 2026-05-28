@@ -50,7 +50,7 @@ public class AuthController {
             User newUser = new User();
             newUser.setEmail(registrationDTO.getEmail());
             newUser.setFullName(registrationDTO.getFullName());
-            newUser.setPassword(passwordEncoder.encode(registrationDTO.getPassword()));
+            newUser.setPasswordHash(passwordEncoder.encode(registrationDTO.getPassword()));
             newUser.setCoinBalance(100);
             newUser.setRole(User.Role.STUDENT);
             newUser.setUniversity("Istanbul Arel University");
@@ -84,7 +84,7 @@ public class AuthController {
         try {
             return userRepository.findByEmail(request.getEmail())
                     .map(user -> {
-                        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+                        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
                             return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
                         }
                         if (Boolean.FALSE.equals(user.getIsActive())) {
@@ -138,7 +138,7 @@ public class AuthController {
             if (user.getResetTokenExpiry().isBefore(java.time.LocalDateTime.now())) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Token expired"));
             }
-            user.setPassword(passwordEncoder.encode(newPassword));
+            user.setPasswordHash(passwordEncoder.encode(newPassword));
             user.setResetToken(null);
             user.setResetTokenExpiry(null);
             userRepository.save(user);

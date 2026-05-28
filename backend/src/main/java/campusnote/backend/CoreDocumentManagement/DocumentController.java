@@ -70,15 +70,21 @@ public class DocumentController {
             }
             file.transferTo(storedFile);
 
-            Document savedDoc = documentService.uploadDocument(
-                    title != null && !title.isBlank() ? title : originalName,
-                    content,
-                    courseCode,
-                    faculty,
-                    storedFile.toString(),
-                    file.getSize(),
-                    userEmail
-            );
+            Document savedDoc;
+            try {
+                savedDoc = documentService.uploadDocument(
+                        title != null && !title.isBlank() ? title : originalName,
+                        content,
+                        courseCode,
+                        faculty,
+                        storedFile.toString(),
+                        file.getSize(),
+                        userEmail
+                );
+            } catch (IllegalArgumentException e) {
+                Files.deleteIfExists(storedFile);
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
 
             return ResponseEntity.ok(documentService.convertToDTO(savedDoc, userEmail));
         } catch (Exception e) {

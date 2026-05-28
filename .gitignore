@@ -73,3 +73,24 @@ backend/target/
 
 # Local regression test artifacts
 local-test-artifacts/
+
+# Python virtual environments and caches
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local runtime logs and uploads
+local-run-logs/
+uploads/
+backend/uploads/
+
+# Test output/error text files
+ai-service/test_err.txt
+ai-service/test_out.txt
+test_err.txt
+test_out.txt

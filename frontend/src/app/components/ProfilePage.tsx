@@ -146,6 +146,7 @@ export function ProfilePage() {
   }, []);
 
   const handleSaveProfile = async () => {
+    if (!currentUser) return;
     setIsSaving(true);
     const dataToSend: any = { ...editData };
     
@@ -160,7 +161,7 @@ export function ProfilePage() {
     setIsSaving(false);
     
     if (updated) {
-      AuthService.saveUser(updated);
+      AuthService.saveUser({ ...currentUser, ...updated, role: updated.role ?? currentUser.role });
       setIsEditing(false);
       toast.success('Profile updated successfully!', {
         icon: <Check className="w-4 h-4 text-emerald-500" />,
@@ -181,10 +182,10 @@ export function ProfilePage() {
     const drafts = totalNotes - published - rejected;
     
     // FR-ST-10: Display an aggregated total of downloads received across all of the user's documents
-    const totalDownloads = docs.reduce((sum, d) => sum + (d.downloadCount || 0), 0);
+    const totalDownloads = docs.reduce((sum, d) => sum + (d.downloads || 0), 0);
     
     // FR-ST-13: Display an aggregated total of 'Likes' received across all of the user's documents
-    const totalLikes = docs.reduce((sum, d) => sum + (d.likeCount || 0), 0);
+    const totalLikes = docs.reduce((sum, d) => sum + (d.likes || 0), 0);
 
     const avgAiScore = published ? Math.round(docs.filter(d => d.status === 'PUBLISHED').reduce((sum, d) => sum + (d.score ?? d.aiScore ?? 0), 0) / published) : 0;
     

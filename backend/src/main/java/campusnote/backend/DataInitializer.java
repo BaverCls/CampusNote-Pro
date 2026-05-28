@@ -23,7 +23,7 @@ public class DataInitializer {
                 User admin = new User();
                 admin.setEmail(adminEmail);
                 admin.setFullName("System Admin");
-                admin.setPassword(passwordEncoder.encode(adminPassword));
+                admin.setPasswordHash(passwordEncoder.encode(adminPassword));
                 admin.setRole(User.Role.ADMIN);
                 admin.setCoinBalance(999999);
                 admin.setUniversity("CampusNote HQ");

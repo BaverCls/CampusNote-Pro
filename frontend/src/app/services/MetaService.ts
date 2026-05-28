@@ -14,7 +14,7 @@ export interface DepartmentMeta {
 
 export const MetaService = {
   async getFaculties(): Promise<FacultyMeta[]> {
-    const response = await authFetch(`${API_URL}/meta/faculties`, {
+    const response = await fetch(`${API_URL}/meta/faculties`, {
       headers: { Accept: 'application/json' },
     });
     if (!response.ok) {
@@ -24,7 +24,7 @@ export const MetaService = {
   },
 
   async getDepartments(): Promise<DepartmentMeta[]> {
-    const response = await authFetch(`${API_URL}/meta/departments`, {
+    const response = await fetch(`${API_URL}/meta/departments`, {
       headers: { Accept: 'application/json' },
     });
     if (!response.ok) {

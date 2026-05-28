@@ -27,9 +27,6 @@ public class Document {
 
     private Integer type;
 
-    @Column(name = "faculty", nullable = false)
-    private String facultyName;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uploaded_by_user_id")
     private User user;
@@ -39,14 +36,6 @@ public class Document {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id")
     private Course course;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "faculty_id")
-    private Faculty faculty;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "department_id")
-    private Department department;
 
     private Integer isPublic;
     private String status = "DRAFT";
