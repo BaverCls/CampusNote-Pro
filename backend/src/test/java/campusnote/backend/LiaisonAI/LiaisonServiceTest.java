@@ -14,7 +14,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LiaisonServiceTest {
@@ -33,7 +32,7 @@ class LiaisonServiceTest {
     }
 
     @Test
-    void triggerEvaluationUpdatesStatusSendsNotificationAndFinalizes() {
+    void triggerEvaluationMarksUnderReviewSendsNotificationAndFinalizes() {
         User user = new User();
         user.setId(1L);
         user.setEmail("student@arel.edu.tr");
@@ -51,8 +50,6 @@ class LiaisonServiceTest {
         // run evaluation synchronously in the test
         liaisonService.triggerEvaluation(10L);
 
-        // Verify status changed to UNDER REVIEW and saved
-        assertEquals("UNDER REVIEW", doc.getStatus());
         verify(documentRepository).save(doc);
 
         // Verify notification sent
@@ -64,12 +61,12 @@ class LiaisonServiceTest {
                 contains("Computer Networks")
         );
 
-        // Verify finalization is called
+        // Final production status is owned by DocumentService; this service only starts review and delegates finalization.
         verify(documentService).finalizeAIRanking(eq(10L), anyInt());
     }
 
     @Test
-    void triggerEvaluationWithAiServiceSuccess() throws Exception {
+    void triggerEvaluationWithPyTorchAiServiceSuccessUsesCanonicalModelScore() throws Exception {
         User user = new User();
         user.setId(1L);
         user.setEmail("student@arel.edu.tr");
@@ -88,20 +85,26 @@ class LiaisonServiceTest {
         @SuppressWarnings("unchecked")
         HttpResponse<String> mockResponse = mock(HttpResponse.class);
         when(mockResponse.statusCode()).thenReturn(200);
-        when(mockResponse.body()).thenReturn("{\"documentId\":10,\"score\":85,\"decision\":\"PUBLISH\",\"confidence\":0.85,\"matchedSignals\":[\"algorithm\"],\"modelVersion\":\"pytorch-demo-v1\"}");
+        when(mockResponse.body()).thenReturn("{\"documentId\":10,\"score\":95,\"decision\":\"PUBLISH\",\"confidence\":0.95,\"matchedSignals\":[\"algorithm\"],\"modelVersion\":\"pytorch-demo-v1\"}");
         doReturn(mockResponse).when(mockHttpClient).send(any(), any());
 
         ReflectionTestUtils.setField(liaisonService, "httpClient", mockHttpClient);
 
         liaisonService.triggerEvaluation(10L);
 
-        assertEquals("UNDER REVIEW", doc.getStatus());
         verify(documentRepository).save(doc);
-        verify(documentService).finalizeAIRanking(eq(10L), eq(85));
+        verify(notificationService).createForUser(
+                eq(user),
+                eq(10L),
+                eq("DOCUMENT_UNDER_REVIEW"),
+                eq("AI evaluation started"),
+                contains("Computer Networks")
+        );
+        verify(documentService).finalizeAIRanking(eq(10L), eq(95));
     }
 
     @Test
-    void triggerEvaluationWithAiServiceUnavailableFallsBackToLocalScoring() throws Exception {
+    void triggerEvaluationWithAiServiceUnavailableFallsBackToKeywordRatioScoring() throws Exception {
         User user = new User();
         user.setId(1L);
         user.setEmail("student@arel.edu.tr");
@@ -123,9 +126,17 @@ class LiaisonServiceTest {
 
         liaisonService.triggerEvaluation(10L);
 
-        assertEquals("UNDER REVIEW", doc.getStatus());
         verify(documentRepository).save(doc);
-        // Verify fallback is triggered: local mock text contains 6 out of 7 CS101 keywords.
+        verify(notificationService).createForUser(
+                eq(user),
+                eq(10L),
+                eq("DOCUMENT_UNDER_REVIEW"),
+                eq("AI evaluation started"),
+                contains("Computer Networks")
+        );
+        // Primary AI service scores come from the PyTorch model. If unavailable, fallback uses
+        // a simple keyword ratio, so it is not expected to match the canonical PyTorch score.
+        // Local mock text contains 6 out of 7 CS101 keywords.
         // "functions" also matches the "function" keyword via contains().
         // Score = (6/7) * 100 = 85
         verify(documentService).finalizeAIRanking(eq(10L), eq(85));

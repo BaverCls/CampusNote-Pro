@@ -6,9 +6,12 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Configuration
 public class DataInitializer {
+    private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
 
     @org.springframework.beans.factory.annotation.Value("${campusnote.admin.email}")
     private String adminEmail;
@@ -19,6 +22,11 @@ public class DataInitializer {
     @Bean
     public CommandLineRunner initData(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         return args -> {
+            if (isBlank(adminEmail) || isBlank(adminPassword)) {
+                logger.info("Admin bootstrap skipped because admin credentials are not configured.");
+                return;
+            }
+
             if (userRepository.findByEmail(adminEmail).isEmpty()) {
                 User admin = new User();
                 admin.setEmail(adminEmail);
@@ -29,8 +37,12 @@ public class DataInitializer {
                 admin.setUniversity("CampusNote HQ");
                 admin.setIsActive(true);
                 userRepository.save(admin);
-                System.out.println("Admin user created with email: " + adminEmail);
+                logger.info("Admin bootstrap completed.");
             }
         };
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

@@ -74,7 +74,7 @@ class AuthControllerTest {
         Map<?, ?> responseBody = (Map<?, ?>) response.getBody();
         assertNotNull(responseBody);
         assertEquals("Password reset link sent to email", responseBody.get("message"));
-        assertEquals(user.getResetToken(), responseBody.get("token"));
+        assertFalse(responseBody.containsKey("token"));
     }
 
     @Test

@@ -120,9 +120,7 @@ public class AuthController {
             user.setResetToken(token);
             user.setResetTokenExpiry(java.time.LocalDateTime.now().plusHours(1));
             userRepository.save(user);
-            // In a real system, we would send an email here.
-            System.out.println("Reset token for " + email + ": " + token);
-            return ResponseEntity.ok(Map.of("message", "Password reset link sent to email", "token", token));
+            return ResponseEntity.ok(Map.of("message", "Password reset link sent to email"));
         }).orElse(ResponseEntity.ok(Map.of("message", "If an account exists with that email, a reset link has been sent.")));
     }
 

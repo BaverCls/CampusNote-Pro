@@ -34,18 +34,41 @@ if not exist "ai-service\.venv\Scripts\python.exe" (
     echo.
 )
 
+set "MISSING_SECRET="
+if "%ADMIN_EMAIL%"=="" (
+    echo Missing ADMIN_EMAIL environment variable.
+    set "MISSING_SECRET=1"
+)
+if "%ADMIN_PASSWORD%"=="" (
+    echo Missing ADMIN_PASSWORD environment variable.
+    set "MISSING_SECRET=1"
+)
+if "%SPRING_DATASOURCE_URL%"=="" (
+    echo Missing SPRING_DATASOURCE_URL environment variable.
+    set "MISSING_SECRET=1"
+)
+if "%SPRING_DATASOURCE_USERNAME%"=="" (
+    echo Missing SPRING_DATASOURCE_USERNAME environment variable.
+    set "MISSING_SECRET=1"
+)
+if "%SPRING_DATASOURCE_PASSWORD%"=="" (
+    echo Missing SPRING_DATASOURCE_PASSWORD environment variable.
+    set "MISSING_SECRET=1"
+)
+if not "%MISSING_SECRET%"=="" (
+    echo.
+    echo Set the required environment variables before running this script.
+    pause
+    exit /b 1
+)
+
 echo [1/3] Starting Python PyTorch AI Microservice on Port 9000...
 start "CampusNote Pro - Python AI Service" cmd /k "cd ai-service && call .venv\Scripts\activate && python -m uvicorn service:app --host 127.0.0.1 --port 9000"
 
-echo [2/3] Starting Spring Boot Backend on Port 8081 (H2 Memory Database)...
-set SPRING_DATASOURCE_URL=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
-set SPRING_DATASOURCE_USERNAME=sa
-set SPRING_DATASOURCE_PASSWORD=
-set ADMIN_EMAIL=admin@arel.edu.tr
-set ADMIN_PASSWORD=admin123
+echo [2/3] Starting Spring Boot Backend on Port 8080 (PostgreSQL/Supabase Database)...
 start "CampusNote Pro - Spring Boot Backend" cmd /k "cd backend && mvnw.cmd spring-boot:run"
 
-echo [3/3] Starting React Frontend on Port 5173...
+echo [3/3] Starting React Frontend...
 start "CampusNote Pro - Vite React Frontend" cmd /k "cd frontend && npm run dev"
 
 echo.
@@ -53,7 +76,7 @@ echo =======================================================================
 echo Launch complete! Three terminal windows have been opened for the services.
 echo.
 echo - AI Service: http://127.0.0.1:9000/docs
-echo - Spring Boot: http://localhost:8081/actuator/health
-echo - Frontend: http://localhost:5173
+echo - Spring Boot: http://localhost:8080/actuator/health
+echo - Frontend: use the Vite Local URL printed in the frontend terminal
 echo =======================================================================
 pause

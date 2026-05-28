@@ -23,6 +23,13 @@ bin/
 .env
 .env.*
 !.env.example
+local-env.bat
+local-env.ps1
+secrets.*
+*.secret
+backend/.env.local
+ai-service/.env
+ai-service/.env.local
 
 # Logs
 *.log

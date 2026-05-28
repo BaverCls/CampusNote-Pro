@@ -24,18 +24,32 @@ if (-not (Test-Path $venvPython)) {
     & $venvPython -m pip install -r ai-service\requirements.txt
 }
 
-$env:SPRING_DATASOURCE_URL = "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL"
-$env:SPRING_DATASOURCE_USERNAME = "sa"
-$env:SPRING_DATASOURCE_PASSWORD = ""
-$env:ADMIN_EMAIL = "admin@arel.edu.tr"
-$env:ADMIN_PASSWORD = "admin123"
-
+if (-not $env:ADMIN_EMAIL) {
+    Write-Host "Missing ADMIN_EMAIL environment variable."
+    exit 1
+}
+if (-not $env:ADMIN_PASSWORD) {
+    Write-Host "Missing ADMIN_PASSWORD environment variable."
+    exit 1
+}
+if (-not $env:SPRING_DATASOURCE_URL) {
+    Write-Host "Missing SPRING_DATASOURCE_URL environment variable."
+    exit 1
+}
+if (-not $env:SPRING_DATASOURCE_USERNAME) {
+    Write-Host "Missing SPRING_DATASOURCE_USERNAME environment variable."
+    exit 1
+}
+if (-not $env:SPRING_DATASOURCE_PASSWORD) {
+    Write-Host "Missing SPRING_DATASOURCE_PASSWORD environment variable."
+    exit 1
+}
 Start-Process powershell -WindowStyle Normal -ArgumentList "-NoExit", "-Command", "Set-Location '$repoRoot\ai-service'; .\.venv\Scripts\python.exe -m uvicorn service:app --host 127.0.0.1 --port 9000"
-Start-Process powershell -WindowStyle Normal -ArgumentList "-NoExit", "-Command", "Set-Location '$repoRoot\backend'; `$env:SPRING_DATASOURCE_URL='$env:SPRING_DATASOURCE_URL'; `$env:SPRING_DATASOURCE_USERNAME='sa'; `$env:SPRING_DATASOURCE_PASSWORD=''; `$env:ADMIN_EMAIL='admin@arel.edu.tr'; `$env:ADMIN_PASSWORD='admin123'; .\mvnw.cmd spring-boot:run"
+Start-Process powershell -WindowStyle Normal -ArgumentList "-NoExit", "-Command", "Set-Location '$repoRoot\backend'; .\mvnw.cmd spring-boot:run"
 Start-Process powershell -WindowStyle Normal -ArgumentList "-NoExit", "-Command", "Set-Location '$repoRoot\frontend'; npm run dev"
 
 Write-Host ""
 Write-Host "CampusNote Pro is starting:"
 Write-Host "- AI Service: http://127.0.0.1:9000/docs"
-Write-Host "- Spring Boot: http://localhost:8081/actuator/health"
-Write-Host "- Frontend: http://localhost:5173"
+Write-Host "- Spring Boot: http://localhost:8080/actuator/health"
+Write-Host "- Frontend: use the Vite Local URL printed in the frontend terminal"
