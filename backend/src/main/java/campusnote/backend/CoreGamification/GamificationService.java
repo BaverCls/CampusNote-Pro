@@ -14,10 +14,9 @@ public class GamificationService {
 
     // FR-ST-35: Virtual rank thresholds
     private static final TreeMap<Integer, String> RANK_THRESHOLDS = new TreeMap<>(Map.of(
-        0, "ROOKIE",
-        500, "SCHOLAR",
-        1500, "SAGE",
-        3000, "LEGEND"
+        0, "BRONZE",
+        1001, "GOLD",
+        5001, "PLATINUM"
     ));
 
     public GamificationService(UserRepository userRepository) {

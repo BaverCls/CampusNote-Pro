@@ -28,6 +28,8 @@ import java.util.Map;
 @Service
 public class LiaisonService {
     private static final Logger logger = LoggerFactory.getLogger(LiaisonService.class);
+    private static final int MIN_EXTRACTED_TEXT_LENGTH = 80;
+    private static final int MIN_KEYWORD_MATCHES = 2;
     
     private final DocumentRepository documentRepository;
     private final DocumentService documentService;
@@ -88,6 +90,12 @@ public class LiaisonService {
 
                 // FR-ST-25: Extract text from PDF
                 String extractedText = extractText(doc.getFilePath());
+
+                QualityGateResult qualityGate = evaluateQualityGate(extractedText, doc.getCourseCode());
+                if (!qualityGate.passed()) {
+                    rejectDocument(doc, qualityGate.message());
+                    return;
+                }
                 
                 // FR-ST-26 & 27: Calculate quality score (try PyTorch service first, fallback to local keyword score)
                 int score;
@@ -102,15 +110,7 @@ public class LiaisonService {
                 if (score < 0 || score > 100) {
                     String message = String.format("Document rejected because Liaison AI returned an invalid AI score: %d.", score);
                     logger.warn("Liaison AI: Invalid AI score for Doc ID [{}]: {}", docId, score);
-                    doc.setStatus("REJECTED");
-                    documentRepository.save(doc);
-                    notificationService.createForUser(
-                            doc.getUser(),
-                            doc.getId(),
-                            "DOCUMENT_REJECTED",
-                            "Document rejected",
-                            message
-                    );
+                    rejectDocument(doc, message);
                     return;
                 }
                 
@@ -124,6 +124,36 @@ public class LiaisonService {
                 documentRepository.save(doc);
             }
         });
+    }
+
+    private QualityGateResult evaluateQualityGate(String text, String courseCode) {
+        if (text == null || text.isBlank()) {
+            return QualityGateResult.reject("Document rejected because no readable academic text could be extracted.");
+        }
+
+        String normalized = text.replaceAll("\\s+", " ").trim();
+        if (normalized.length() < MIN_EXTRACTED_TEXT_LENGTH) {
+            return QualityGateResult.reject("Document rejected because the extracted text is too short for academic evaluation.");
+        }
+
+        int keywordMatches = countKeywordMatches(normalized, courseCode);
+        if (keywordMatches < MIN_KEYWORD_MATCHES) {
+            return QualityGateResult.reject("Document rejected because the extracted text is not relevant enough to the selected course.");
+        }
+
+        return QualityGateResult.pass();
+    }
+
+    private void rejectDocument(campusnote.backend.CoreDocumentManagement.Document doc, String message) {
+        doc.setStatus("REJECTED");
+        documentRepository.save(doc);
+        notificationService.createForUser(
+                doc.getUser(),
+                doc.getId(),
+                "DOCUMENT_REJECTED",
+                "Document rejected",
+                message
+        );
     }
 
     @SuppressWarnings("unchecked")
@@ -173,15 +203,11 @@ public class LiaisonService {
     int calculateScore(String text, String courseCode) {
         if (text == null || text.isBlank()) return 0;
         
-        String lowerText = text.toLowerCase();
-        
         // FR-ST-26: The AI ranking service shall calculate a quality score based on keyword density
         // FR-ST-27: The AI ranking service shall calculate a quality score based on relevance to the specific Department/Course dictionary
         List<String> keywords = KEYWORD_DICTIONARY.getOrDefault(courseCode, KEYWORD_DICTIONARY.get("GEN"));
         
-        long matchCount = keywords.stream()
-                .filter(lowerText::contains)
-                .count();
+        long matchCount = countKeywordMatches(text, courseCode);
         
         // Calculate density percentage
         double density = (double) matchCount / keywords.size();
@@ -189,5 +215,23 @@ public class LiaisonService {
         
         // Ensure it's between 0 and 100
         return Math.min(100, Math.max(0, score));
+    }
+
+    private int countKeywordMatches(String text, String courseCode) {
+        String lowerText = text.toLowerCase();
+        List<String> keywords = KEYWORD_DICTIONARY.getOrDefault(courseCode, KEYWORD_DICTIONARY.get("GEN"));
+        return (int) keywords.stream()
+                .filter(lowerText::contains)
+                .count();
+    }
+
+    private record QualityGateResult(boolean passed, String message) {
+        static QualityGateResult pass() {
+            return new QualityGateResult(true, "");
+        }
+
+        static QualityGateResult reject(String message) {
+            return new QualityGateResult(false, message);
+        }
     }
 }

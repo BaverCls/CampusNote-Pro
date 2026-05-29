@@ -59,7 +59,7 @@ public class User {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
-    private String rank = "ROOKIE";
+    private String rank = "BRONZE";
 
     @Column(name = "reset_token")
     private String resetToken;

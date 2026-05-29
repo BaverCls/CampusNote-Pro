@@ -112,7 +112,7 @@ public class LeaderboardController {
                 user.getIsActive(),
                 user.getYear(),
                 user.getCreatedAt() != null ? user.getCreatedAt().toString() : null,
-                user.getRank() != null ? user.getRank() : "NEWBIE",
+                user.getRank() != null ? user.getRank() : "BRONZE",
                 0, // totalDownloads
                 0  // totalLikes
         );

@@ -170,7 +170,7 @@ public class AuthController {
                 user.getIsActive(),
                 user.getYear(),
                 createdAtStr,
-                user.getRank() != null ? user.getRank() : "ROOKIE",
+                user.getRank() != null ? user.getRank() : "BRONZE",
                 totalDownloads != null ? totalDownloads.intValue() : 0,
                 totalLikes != null ? totalLikes.intValue() : 0
         );

@@ -3,6 +3,7 @@ import { Search, Bell, Coins, Award, ChevronDown, User, Settings, LogOut, Menu, 
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../services/AuthService';
 import { AppNotification, NotificationService } from '../services/NotificationService';
+import { getRankConfig } from '../utils/rank';
 
 const NOTIFICATIONS_UPDATED_EVENT = 'notifications-updated';
 
@@ -23,6 +24,7 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
   const [currentUser, setCurrentUser] = useState(AuthService.getCurrentUser());
   const notificationRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const rankConfig = currentUser ? getRankConfig(currentUser.rank, currentUser.coinBalance ?? 0) : null;
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -291,22 +293,10 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
 
             <div className="flex items-center gap-3">
               {currentUser && (
-                <div className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
-                  (currentUser.coinBalance ?? 0) > 5000 
-                    ? 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 dark:border-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.15)]'
-                    : (currentUser.coinBalance ?? 0) > 1000
-                    ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-900/40 text-amber-700 dark:text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.12)]'
-                    : 'bg-[#f4eadf] dark:bg-[#3a2418]/45 border border-[#b47a48]/40 dark:border-[#8a5a35]/45 text-[#6f4528] dark:text-[#d2a06f] shadow-[0_0_8px_rgba(111,69,40,0.08)]'
-                }`}>
-                  <Award className={`w-4 h-4 ${
-                    (currentUser.coinBalance ?? 0) > 5000 
-                      ? 'text-indigo-600 dark:text-indigo-400' 
-                      : (currentUser.coinBalance ?? 0) > 1000 
-                      ? 'text-amber-500' 
-                      : 'text-[#8a5a35] dark:text-[#d2a06f]'
-                  }`} />
+                <div className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full ${rankConfig?.badge}`}>
+                  <Award className={`w-4 h-4 ${rankConfig?.icon}`} />
                   <span className="text-xs font-black uppercase tracking-wider">
-                    {(currentUser.coinBalance ?? 0) > 5000 ? 'Platinum' : (currentUser.coinBalance ?? 0) > 1000 ? 'Gold' : 'Bronze'}
+                    {rankConfig?.label}
                   </span>
                 </div>
               )}

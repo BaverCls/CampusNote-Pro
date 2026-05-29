@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
 import { AuthService } from '../services/AuthService';
+import { getCampusRank } from '../utils/rank';
 
 function formatRole(role?: string) {
   if (role === 'ADMIN') return 'Admin';
@@ -51,7 +52,7 @@ export function SettingsPage() {
 
   const displayName = currentUser.fullName || currentUser.email.split('@')[0];
   const hasCoins = currentUser.coinBalance !== undefined && currentUser.coinBalance !== null;
-  const rank = currentUser.rank;
+  const rank = getCampusRank(currentUser.rank, currentUser.coinBalance ?? 0);
   const completion = getProfileCompletion(currentUser);
 
   return (

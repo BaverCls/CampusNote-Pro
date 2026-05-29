@@ -68,6 +68,26 @@ export const UserService = {
     }
   },
 
+  async updateAdminUser(id: number, data: Pick<UserData, 'facultyId' | 'departmentId' | 'year'>): Promise<UserData | null> {
+    if (!Number.isInteger(id) || id <= 0) {
+      console.error('Admin User Update Error: invalid user id type');
+      return null;
+    }
+    try {
+      const response = await authFetch(`${API_URL}/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error(`Update failed: ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SESSION_EXPIRED') throw error;
+      console.error('Admin User Update Error:', error);
+      return null;
+    }
+  },
+
   async banUser(id: number): Promise<boolean> {
     if (!Number.isInteger(id) || id <= 0) {
       console.error('Ban User Error: invalid user id type');

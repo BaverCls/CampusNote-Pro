@@ -3,6 +3,11 @@ package campusnote.backend.CoreSecurity;
 import campusnote.backend.CoreDocumentManagement.DocumentDTO;
 import campusnote.backend.CoreDocumentManagement.DocumentRepository;
 import campusnote.backend.CoreDocumentManagement.DocumentService;
+import campusnote.backend.CoreDocumentManagement.Department;
+import campusnote.backend.CoreDocumentManagement.Faculty;
+import campusnote.backend.CoreDocumentManagement.DepartmentRepository;
+import campusnote.backend.CoreDocumentManagement.FacultyRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -19,15 +24,29 @@ public class AdminController {
     private final DocumentRepository documentRepository;
     private final DocumentService documentService;
     private final AuditLogRepository auditLogRepository;
+    private final FacultyRepository facultyRepository;
+    private final DepartmentRepository departmentRepository;
 
-    public AdminController(UserRepository userRepository, 
+    @Autowired
+    public AdminController(UserRepository userRepository,
                            DocumentRepository documentRepository,
                            DocumentService documentService,
-                           AuditLogRepository auditLogRepository) {
+                           AuditLogRepository auditLogRepository,
+                           FacultyRepository facultyRepository,
+                           DepartmentRepository departmentRepository) {
         this.userRepository = userRepository;
         this.documentRepository = documentRepository;
         this.documentService = documentService;
         this.auditLogRepository = auditLogRepository;
+        this.facultyRepository = facultyRepository;
+        this.departmentRepository = departmentRepository;
+    }
+
+    public AdminController(UserRepository userRepository,
+                           DocumentRepository documentRepository,
+                           DocumentService documentService,
+                           AuditLogRepository auditLogRepository) {
+        this(userRepository, documentRepository, documentService, auditLogRepository, null, null);
     }
 
     private boolean isAdmin(HttpSession session) {
@@ -96,10 +115,64 @@ public class AdminController {
                 user.getIsActive(),
                 user.getYear(),
                 user.getCreatedAt() != null ? user.getCreatedAt().toString() : null,
-                user.getRank() != null ? user.getRank() : "NEWBIE",
+                user.getRank() != null ? user.getRank() : "BRONZE",
                 0, // totalDownloads
                 0  // totalLikes
         );
+    }
+
+    @PutMapping("/users/{id}")
+    @Transactional
+    public ResponseEntity<?> updateUserAcademicInfo(@PathVariable Long id, @RequestBody UserDTO updateData, HttpSession session) {
+        if (!isAdmin(session)) return ResponseEntity.status(403).build();
+
+        return userRepository.findById(id).map(user -> {
+            Faculty selectedFaculty = null;
+            Department selectedDepartment = null;
+
+            if (updateData.getFacultyId() != null) {
+                var faculty = facultyRepository.findById(updateData.getFacultyId());
+                if (faculty.isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid faculty"));
+                }
+                selectedFaculty = faculty.get();
+            }
+
+            if (updateData.getDepartmentId() != null) {
+                var department = departmentRepository.findById(updateData.getDepartmentId());
+                if (department.isEmpty()) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid department"));
+                }
+                selectedDepartment = department.get();
+            }
+
+            if (selectedFaculty != null && selectedDepartment != null) {
+                Faculty departmentFaculty = selectedDepartment.getFaculty();
+                if (departmentFaculty == null || !selectedFaculty.getId().equals(departmentFaculty.getId())) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Department does not belong to selected faculty"));
+                }
+            }
+
+            if (selectedFaculty != null) {
+                user.setFaculty(selectedFaculty);
+            }
+            if (selectedDepartment != null) {
+                user.setDepartment(selectedDepartment);
+                user.setDepartmentName(selectedDepartment.getName());
+            }
+
+            if (updateData.getYear() != null) {
+                int year = updateData.getYear();
+                if (year < 1 || year > 4) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid year"));
+                }
+                user.setYear(year);
+            }
+
+            User saved = userRepository.save(user);
+            logAction("UPDATE_USER_ACADEMIC_INFO", getAdminEmail(session), "User ID: " + id);
+            return ResponseEntity.ok(convertToDTO(saved));
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/users/{id}/suspend")

@@ -11,6 +11,7 @@ import { MetaService, FacultyMeta, DepartmentMeta } from '../services/MetaServic
 import { NoteDocument } from '../types';
 import { Settings, Save, X as CloseIcon, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { getRankConfig } from '../utils/rank';
 
 const AREL_UNIVERSITY = 'Istanbul Arel University';
 
@@ -220,6 +221,7 @@ export function ProfilePage() {
     },
   };
   const completion = getProfileCompletion(currentUser);
+  const rankConfig = getRankConfig(currentUser.rank, currentUser.coinBalance ?? 0);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
@@ -246,22 +248,10 @@ export function ProfilePage() {
               </div>
 
               <div className="flex flex-wrap gap-3 items-center">
-                <div className={`flex items-center gap-2 rounded-full px-4 py-2 shadow-sm ${
-                  (user.rank || '').toUpperCase() === 'PLATINUM' 
-                    ? 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 dark:border-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.15)]'
-                    : (user.rank || '').toUpperCase() === 'GOLD'
-                    ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-900/40 text-amber-700 dark:text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.12)]'
-                    : 'bg-[#f4eadf] dark:bg-[#3a2418]/45 border border-[#b47a48]/40 dark:border-[#8a5a35]/45 text-[#6f4528] dark:text-[#d2a06f] shadow-[0_0_8px_rgba(111,69,40,0.08)]'
-                }`}>
-                  <Award className={`w-4 h-4 ${
-                    (user.rank || '').toUpperCase() === 'PLATINUM' 
-                      ? 'text-indigo-600 dark:text-indigo-400' 
-                      : (user.rank || '').toUpperCase() === 'GOLD' 
-                      ? 'text-amber-500' 
-                      : 'text-[#8a5a35] dark:text-[#d2a06f]'
-                  }`} />
+                <div className={`flex items-center gap-2 rounded-full px-4 py-2 shadow-sm ${rankConfig.badge}`}>
+                  <Award className={`w-4 h-4 ${rankConfig.icon}`} />
                   <span className="text-sm font-bold uppercase tracking-tight">
-                    {user.rank ? `${user.rank} Rank` : 'Bronze Rank'}
+                    {rankConfig.label}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 shadow-sm">
@@ -282,23 +272,25 @@ export function ProfilePage() {
             {user.bio && <p className="mt-6 text-slate-600 dark:text-slate-400 text-sm max-w-2xl leading-relaxed">{user.bio}</p>}
           </div>
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Profile completion</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  {completion.completed}/{completion.total} completed
-                </p>
+          {completion.percent < 100 && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Profile completion</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {completion.completed}/{completion.total} completed
+                  </p>
+                </div>
+                <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{completion.percent}%</span>
               </div>
-              <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{completion.percent}%</span>
+              <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${completion.percent}%` }}></div>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
+                Missing: {completion.missing.join(', ')}
+              </p>
             </div>
-            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${completion.percent}%` }}></div>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
-              {completion.missing.length > 0 ? `Missing: ${completion.missing.join(', ')}` : 'All required profile details are complete.'}
-            </p>
-          </div>
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <StatCard label="Total Notes" value={user.stats.totalNotes} />

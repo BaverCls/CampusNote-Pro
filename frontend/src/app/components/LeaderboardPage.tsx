@@ -6,6 +6,7 @@ import { MobileNav } from './MobileNav';
 import { AuthService } from '../services/AuthService';
 import { UserData, UserService } from '../services/UserService';
 import { FacultyMeta, MetaService } from '../services/MetaService';
+import { getRankConfig } from '../utils/rank';
 
 export function LeaderboardPage() {
   const navigate = useNavigate();
@@ -90,32 +91,30 @@ export function LeaderboardPage() {
                   <th className="px-6 py-4 text-xs uppercase tracking-wider text-slate-500">Rank</th>
                   <th className="px-6 py-4 text-xs uppercase tracking-wider text-slate-500">User</th>
                   <th className="px-6 py-4 text-xs uppercase tracking-wider text-slate-500">Department</th>
+                  <th className="px-6 py-4 text-xs uppercase tracking-wider text-slate-500">Year</th>
                   <th className="px-6 py-4 text-xs uppercase tracking-wider text-slate-500">Tier</th>
                   <th className="px-6 py-4 text-xs uppercase tracking-wider text-slate-500 text-right">Coins</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td className="px-6 py-8 text-slate-500" colSpan={5}>Loading leaderboard...</td></tr>
+                  <tr><td className="px-6 py-8 text-slate-500" colSpan={6}>Loading leaderboard...</td></tr>
                 ) : users.length === 0 ? (
-                  <tr><td className="px-6 py-8 text-slate-500" colSpan={5}>No data yet. Try changing your filters.</td></tr>
+                  <tr><td className="px-6 py-8 text-slate-500" colSpan={6}>No data yet. Try changing your filters.</td></tr>
                 ) : (
                   users.map((user, idx) => {
-                    const tierLabel = user.coinBalance > 5000 ? 'Platinum' : user.coinBalance > 1000 ? 'Gold' : 'Bronze';
-                    const tierClasses = user.coinBalance > 5000
-                      ? 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 dark:border-indigo-900/40 text-indigo-700 dark:text-indigo-300'
-                      : user.coinBalance > 1000
-                      ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-900/40 text-amber-700 dark:text-amber-400'
-                      : 'bg-[#f4eadf] dark:bg-[#3a2418]/45 border border-[#b47a48]/40 dark:border-[#8a5a35]/45 text-[#6f4528] dark:text-[#d2a06f]';
+                    const tier = getRankConfig(user.rank, user.coinBalance);
                     const departmentLabel = user.departmentName || user.facultyName || 'N/A';
+                    const yearLabel = user.year && user.year >= 1 && user.year <= 4 ? `Year ${user.year}` : 'N/A';
                     return (
                       <tr key={user.id} className="border-t border-slate-100 dark:border-slate-800">
                         <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">#{idx + 1}</td>
                         <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">{user.fullName || user.email.split('@')[0]}</td>
                         <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{departmentLabel}</td>
+                        <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{yearLabel}</td>
                         <td className="px-6 py-4">
-                          <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${tierClasses}`}>
-                            {tierLabel}
+                          <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${tier.badge}`}>
+                            {tier.label}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right font-bold text-amber-600">{user.coinBalance.toLocaleString()}</td>

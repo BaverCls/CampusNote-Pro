@@ -27,6 +27,11 @@ import { NoteDocument } from '../types';
 import { AdminCourseManager } from './AdminCourseManager';
 import { Book } from 'lucide-react'; // Import a new icon for courses
 import { toast } from 'sonner';
+import { DepartmentMeta, FacultyMeta, MetaService } from '../services/MetaService';
+
+function OverviewMetricSkeleton({ className = 'h-8 w-24' }: { className?: string }) {
+  return <span className={`block ${className} rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse`} />;
+}
 
 export function AdminPanel() {
   const navigate = useNavigate();
@@ -51,8 +56,12 @@ export function AdminPanel() {
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [aiThreshold, setAiThreshold] = useState(80);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [selectedUserEdit, setSelectedUserEdit] = useState({ facultyId: '', departmentId: '', year: '' });
+  const [faculties, setFaculties] = useState<FacultyMeta[]>([]);
+  const [departments, setDepartments] = useState<DepartmentMeta[]>([]);
   const [documentStatusFilter, setDocumentStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'PENDING' | 'FLAGGED' | 'REJECTED'>('ALL');
   const [userActionId, setUserActionId] = useState<number | null>(null);
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
 
   // Review Action States
   const [reviewScores, setReviewScores] = useState<{[key: number]: number}>({});
@@ -61,7 +70,25 @@ export function AdminPanel() {
 
   useEffect(() => {
     fetchAllData();
+    Promise.all([MetaService.getFaculties(), MetaService.getDepartments()])
+      .then(([facs, depts]) => {
+        setFaculties(facs);
+        setDepartments(depts);
+      })
+      .catch((error) => {
+        console.error('Admin metadata fetch failed:', error);
+        toast.error('Academic metadata could not be loaded.');
+      });
   }, []);
+
+  const openUserDetails = (user: UserData) => {
+    setSelectedUser(user);
+    setSelectedUserEdit({
+      facultyId: user.facultyId ? String(user.facultyId) : '',
+      departmentId: user.departmentId ? String(user.departmentId) : '',
+      year: user.year ? String(user.year) : '',
+    });
+  };
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -266,6 +293,9 @@ export function AdminPanel() {
       : status === documentStatusFilter;
     return matchesStatus && matchesQuery;
   });
+  const editableDepartments = departments.filter((department) => (
+    selectedUserEdit.facultyId ? String(department.facultyId) === selectedUserEdit.facultyId : true
+  ));
   const getDocumentStatusBadge = (status?: NoteDocument['status']) => {
     switch (status) {
       case 'PUBLISHED':
@@ -282,6 +312,34 @@ export function AdminPanel() {
       default:
         return { label: 'Draft', classes: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' };
     }
+  };
+
+  const handleUpdateUserAcademicInfo = async () => {
+    if (!selectedUser) return;
+    const facultyId = Number(selectedUserEdit.facultyId);
+    const departmentId = Number(selectedUserEdit.departmentId);
+    const year = Number(selectedUserEdit.year);
+
+    if (!Number.isInteger(facultyId) || facultyId <= 0 || !Number.isInteger(departmentId) || departmentId <= 0 || !Number.isInteger(year) || year < 1 || year > 4) {
+      toast.error('Select a faculty, department, and year.');
+      return;
+    }
+
+    setIsUpdatingUser(true);
+    const updated = await UserService.updateAdminUser(selectedUser.id, { facultyId, departmentId, year });
+    if (updated) {
+      toast.success('User academic info updated.');
+      setSelectedUser(updated);
+      setSelectedUserEdit({
+        facultyId: updated.facultyId ? String(updated.facultyId) : '',
+        departmentId: updated.departmentId ? String(updated.departmentId) : '',
+        year: updated.year ? String(updated.year) : '',
+      });
+      await fetchAllData();
+    } else {
+      toast.error('User update failed.');
+    }
+    setIsUpdatingUser(false);
   };
 
   return (
@@ -357,11 +415,17 @@ export function AdminPanel() {
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm font-medium">
-                          <span className="text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">{stats.storageUsedGb} GB Used</span>
+                          <span className="text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
+                            {loading ? <OverviewMetricSkeleton className="h-4 w-20" /> : `${stats.storageUsedGb} GB Used`}
+                          </span>
                           <span className="text-slate-500 dark:text-slate-400">10 GB Enterprise Tier</span>
                         </div>
                         <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-600 rounded-full transition-all duration-1000" style={{ width: `${(parseFloat(stats.storageUsedGb) / 10) * 100}%` }}></div>
+                          {loading ? (
+                            <div className="h-full w-1/3 bg-slate-200 dark:bg-slate-700 animate-pulse rounded-full"></div>
+                          ) : (
+                            <div className="h-full bg-indigo-600 rounded-full transition-all duration-1000" style={{ width: `${(parseFloat(stats.storageUsedGb) / 10) * 100}%` }}></div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -378,10 +442,19 @@ export function AdminPanel() {
                         </div>
                       </div>
                       <div>
-                        <p className="text-5xl text-slate-900 dark:text-white font-black">{stats.flaggedDocuments}</p>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-tighter mt-2">
-                          {stats.flaggedDocuments > 0 ? `${stats.flaggedDocuments} items reported by AI or Users` : 'Clean moderation queue'}
-                        </p>
+                        {loading ? (
+                          <>
+                            <OverviewMetricSkeleton className="h-12 w-20" />
+                            <OverviewMetricSkeleton className="h-3 w-40 mt-3" />
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-5xl text-slate-900 dark:text-white font-black">{stats.flaggedDocuments}</p>
+                            <p className="text-xs text-slate-500 font-bold uppercase tracking-tighter mt-2">
+                              {stats.flaggedDocuments > 0 ? `${stats.flaggedDocuments} items reported by AI or Users` : 'Clean moderation queue'}
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -390,13 +463,31 @@ export function AdminPanel() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                     <h3 className="text-slate-500 text-sm font-bold uppercase mb-2">User Base</h3>
-                    <p className="text-3xl font-black dark:text-white">{users.length}</p>
-                    <p className="text-xs text-slate-500 font-bold mt-1">Live platform metric</p>
+                    {loading ? (
+                      <>
+                        <OverviewMetricSkeleton />
+                        <OverviewMetricSkeleton className="h-3 w-32 mt-3" />
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-3xl font-black dark:text-white">{users.length}</p>
+                        <p className="text-xs text-slate-500 font-bold mt-1">Live platform metric</p>
+                      </>
+                    )}
                   </div>
                   <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                     <h3 className="text-slate-500 text-sm font-bold uppercase mb-2">Total Documents</h3>
-                    <p className="text-3xl font-black dark:text-white">{documents.length}</p>
-                    <p className="text-xs text-indigo-500 font-bold mt-1">{documents.filter(d => d.status === 'PUBLISHED').length} Published</p>
+                    {loading ? (
+                      <>
+                        <OverviewMetricSkeleton />
+                        <OverviewMetricSkeleton className="h-3 w-28 mt-3" />
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-3xl font-black dark:text-white">{documents.length}</p>
+                        <p className="text-xs text-indigo-500 font-bold mt-1">{documents.filter(d => d.status === 'PUBLISHED').length} Published</p>
+                      </>
+                    )}
                   </div>
                 </div>
               </>
@@ -461,7 +552,7 @@ export function AdminPanel() {
                           <td className="px-4 py-4 bg-slate-50/50 dark:bg-slate-800/30 rounded-r-xl text-right border-y border-r border-transparent group-hover:border-indigo-500/20 transition-all">
                             <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={() => setSelectedUser(user)}
+                                onClick={() => openUserDetails(user)}
                                 className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg shadow-sm border border-transparent hover:border-slate-200 transition-all"
                                 title="View User"
                               >
@@ -802,7 +893,7 @@ export function AdminPanel() {
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">User Details</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Read-only account information</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">View and edit academic information</p>
               </div>
               <button
                 onClick={() => setSelectedUser(null)}
@@ -835,15 +926,43 @@ export function AdminPanel() {
                 </div>
                 <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
                   <p className="text-xs font-bold uppercase text-slate-400 mb-1">Faculty</p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.facultyName || 'Not set'}</p>
+                  <select
+                    value={selectedUserEdit.facultyId}
+                    onChange={(e) => setSelectedUserEdit({ facultyId: e.target.value, departmentId: '', year: selectedUserEdit.year })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  >
+                    <option value="">Select faculty</option>
+                    {faculties.map((faculty) => (
+                      <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
                   <p className="text-xs font-bold uppercase text-slate-400 mb-1">Department</p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.departmentName || 'Not set'}</p>
+                  <select
+                    value={selectedUserEdit.departmentId}
+                    onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, departmentId: e.target.value })}
+                    disabled={!selectedUserEdit.facultyId}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 disabled:opacity-50"
+                  >
+                    <option value="">Select department</option>
+                    {editableDepartments.map((department) => (
+                      <option key={department.id} value={department.id}>{department.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
                   <p className="text-xs font-bold uppercase text-slate-400 mb-1">Year</p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.year ? `Year ${selectedUser.year}` : 'Not set'}</p>
+                  <select
+                    value={selectedUserEdit.year}
+                    onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, year: e.target.value })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  >
+                    <option value="">Select year</option>
+                    {[1, 2, 3, 4].map((year) => (
+                      <option key={year} value={year}>Year {year}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
                   <p className="text-xs font-bold uppercase text-slate-400 mb-1">Coins</p>
@@ -853,12 +972,22 @@ export function AdminPanel() {
             </div>
 
             <div className="p-6 bg-slate-50 dark:bg-slate-800/40 rounded-b-2xl">
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="w-full px-4 py-2.5 bg-slate-900 dark:bg-indigo-600 text-white rounded-xl font-bold hover:opacity-90 transition-opacity"
-              >
-                Close
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className="flex-1 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold hover:border-indigo-300 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleUpdateUserAcademicInfo}
+                  disabled={isUpdatingUser}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 dark:bg-indigo-600 text-white rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-60"
+                >
+                  {isUpdatingUser && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Save Changes
+                </button>
+              </div>
             </div>
           </div>
         </div>

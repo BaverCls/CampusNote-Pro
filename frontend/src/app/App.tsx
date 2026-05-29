@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Filter, SortAsc, Search, AlertCircle, BookOpen, TrendingUp } from 'lucide-react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
@@ -227,6 +227,8 @@ function DocumentListPage({ activeItem, title, description, emptyMessage, mode }
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [facultyFilter, setFacultyFilter] = useState('');
+  const [departmentCourseFilter, setDepartmentCourseFilter] = useState('');
   const navigate = useNavigate();
 
   const currentUser = AuthService.getCurrentUser();
@@ -247,9 +249,10 @@ function DocumentListPage({ activeItem, title, description, emptyMessage, mode }
     setIsLoading(true);
     setErrorMessage('');
 
+    const activeFacultyFilter = mode === 'faculty' ? userFacultyId : facultyFilter;
     const request = mode === 'faculty'
       ? DocumentService.searchDocuments(searchQuery, userFacultyId, 'latest')
-      : DocumentService.searchDocuments(searchQuery, undefined, 'downloads');
+      : DocumentService.searchDocuments(searchQuery, activeFacultyFilter || undefined, 'downloads');
 
     request
       .then((data) => {
@@ -269,10 +272,34 @@ function DocumentListPage({ activeItem, title, description, emptyMessage, mode }
     return () => {
       isMounted = false;
     };
-  }, [mode, searchQuery, title, userFacultyId]);
+  }, [facultyFilter, mode, searchQuery, title, userFacultyId]);
+
+  useEffect(() => {
+    setDepartmentCourseFilter('');
+  }, [facultyFilter, mode]);
+
+  const departmentCourseOptions = useMemo(() => {
+    const options = new Set<string>();
+    documents.forEach((doc) => {
+      if (doc.departmentName) options.add(doc.departmentName);
+      if (doc.courseCode) options.add(doc.courseCode);
+      if (doc.courseName) options.add(doc.courseName);
+    });
+    return Array.from(options).sort((a, b) => a.localeCompare(b));
+  }, [documents]);
+
+  const visibleDocuments = useMemo(() => {
+    if (!departmentCourseFilter) return documents;
+    const filter = departmentCourseFilter.toLowerCase();
+    return documents.filter((doc) => (
+      doc.departmentName?.toLowerCase() === filter ||
+      doc.courseCode?.toLowerCase() === filter ||
+      doc.courseName?.toLowerCase() === filter
+    ));
+  }, [departmentCourseFilter, documents]);
 
   const showMissingFaculty = mode === 'faculty' && !userFacultyId;
-  const showEmpty = !isLoading && !errorMessage && !showMissingFaculty && documents.length === 0;
+  const showEmpty = !isLoading && !errorMessage && !showMissingFaculty && visibleDocuments.length === 0;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
@@ -327,6 +354,35 @@ function DocumentListPage({ activeItem, title, description, emptyMessage, mode }
             </div>
           )}
 
+          {mode === 'top' && (
+            <div className="flex flex-col sm:flex-row items-center gap-3 mb-6 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white font-medium w-full sm:w-auto">
+                <Filter className="w-4 h-4 text-indigo-600" />
+                <span>Filter by:</span>
+              </div>
+              <select
+                value={facultyFilter}
+                onChange={(e) => setFacultyFilter(e.target.value)}
+                className="w-full sm:w-64 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              >
+                <option value="">All Faculties</option>
+                {faculties.map((faculty) => (
+                  <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
+                ))}
+              </select>
+              <select
+                value={departmentCourseFilter}
+                onChange={(e) => setDepartmentCourseFilter(e.target.value)}
+                className="w-full sm:w-72 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+              >
+                <option value="">All Departments/Courses</option>
+                {departmentCourseOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="mb-4">
             <h3 className="text-slate-900 dark:text-white mb-4 font-semibold">
               {mode === 'faculty' ? 'Faculty Documents' : 'Popular Documents'}
@@ -346,7 +402,7 @@ function DocumentListPage({ activeItem, title, description, emptyMessage, mode }
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 lg:gap-6">
-              {documents.map((doc) => (
+              {visibleDocuments.map((doc) => (
                 <DocumentCard key={doc.id} {...doc} uploader={doc.uploaderName || doc.uploader || 'Anonymous'} />
               ))}
             </div>

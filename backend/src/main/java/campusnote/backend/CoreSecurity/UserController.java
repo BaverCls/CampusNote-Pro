@@ -182,7 +182,7 @@ public class UserController {
                 user.getIsActive(),
                 user.getYear(),
                 user.getCreatedAt() != null ? user.getCreatedAt().toString() : null,
-                user.getRank() != null ? user.getRank() : "NEWBIE",
+                user.getRank() != null ? user.getRank() : "BRONZE",
                 totalDownloads != null ? totalDownloads.intValue() : 0,
                 totalLikes != null ? totalLikes.intValue() : 0
         );
