@@ -70,7 +70,7 @@ export function Sidebar({ activeItem = 'Dashboard', onProfileClick }: SidebarPro
             <span className="text-white text-sm">{currentUser ? currentUser.email.charAt(0).toUpperCase() : 'G'}</span>
           </div>
           <div className="flex-1 text-left min-w-0">
-            <p className="text-sm text-white font-semibold truncate">{currentUser?.email.split('@')[0] || 'Guest'}</p>
+            <p className="text-sm text-white font-semibold truncate">{currentUser?.fullName || currentUser?.email.split('@')[0] || 'Guest'}</p>
             {currentUser && (
               <div className="flex flex-col mt-0.5">
                 <span className="text-[10px] text-slate-400 uppercase tracking-tight truncate">{currentUser.departmentName || 'General'}</span>

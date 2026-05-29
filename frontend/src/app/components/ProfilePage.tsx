@@ -246,10 +246,22 @@ export function ProfilePage() {
               </div>
 
               <div className="flex flex-wrap gap-3 items-center">
-                <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-full px-4 py-2 shadow-sm">
-                  <Award className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-sm font-bold text-indigo-900 dark:text-indigo-400 uppercase tracking-tight">
-                    {user.rank ? `${user.rank} Rank` : 'Rank not available yet'}
+                <div className={`flex items-center gap-2 rounded-full px-4 py-2 shadow-sm ${
+                  (user.rank || '').toUpperCase() === 'PLATINUM' 
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 dark:border-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.15)]'
+                    : (user.rank || '').toUpperCase() === 'GOLD'
+                    ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-900/40 text-amber-700 dark:text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.12)]'
+                    : 'bg-[#f4eadf] dark:bg-[#3a2418]/45 border border-[#b47a48]/40 dark:border-[#8a5a35]/45 text-[#6f4528] dark:text-[#d2a06f] shadow-[0_0_8px_rgba(111,69,40,0.08)]'
+                }`}>
+                  <Award className={`w-4 h-4 ${
+                    (user.rank || '').toUpperCase() === 'PLATINUM' 
+                      ? 'text-indigo-600 dark:text-indigo-400' 
+                      : (user.rank || '').toUpperCase() === 'GOLD' 
+                      ? 'text-amber-500' 
+                      : 'text-[#8a5a35] dark:text-[#d2a06f]'
+                  }`} />
+                  <span className="text-sm font-bold uppercase tracking-tight">
+                    {user.rank ? `${user.rank} Rank` : 'Bronze Rank'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 shadow-sm">
@@ -319,7 +331,7 @@ export function ProfilePage() {
                         <div key={doc.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex items-center justify-between">
                           <div>
                             <div className="font-semibold text-slate-900 dark:text-white">{doc.title}</div>
-                            <div className="text-xs text-slate-500">{doc.courseCode} • {doc.faculty || 'Unknown'}</div>
+                            <div className="text-xs text-slate-500">{doc.courseCode} - {doc.courseName || 'Unknown course'} • {doc.faculty || 'Unknown'}</div>
                           </div>
                           <div className="text-xs font-bold px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                             {doc.status}

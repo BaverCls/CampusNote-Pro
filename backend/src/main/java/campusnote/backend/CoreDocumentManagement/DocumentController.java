@@ -26,12 +26,25 @@ import java.util.UUID;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final R2Properties r2Properties;
+    private final R2StorageService r2StorageService;
 
     @Value("${campusnote.upload-dir:uploads}")
     private String uploadDir;
 
+    // Backward compatible constructor for tests
     public DocumentController(DocumentService documentService) {
+        this(documentService, new R2Properties(), null);
+    }
+
+    // Full constructor for runtime injection
+    @org.springframework.beans.factory.annotation.Autowired
+    public DocumentController(DocumentService documentService, 
+                              @org.springframework.context.annotation.Lazy R2Properties r2Properties, 
+                              @org.springframework.context.annotation.Lazy R2StorageService r2StorageService) {
         this.documentService = documentService;
+        this.r2Properties = r2Properties;
+        this.r2StorageService = r2StorageService;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -49,41 +62,88 @@ public class DocumentController {
             }
 
             String originalName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "";
-            if (file.isEmpty() || !originalName.toLowerCase().endsWith(".pdf")) {
+            if (file.isEmpty() || !originalName.toLowerCase().endsWith(".pdf") || !"application/pdf".equalsIgnoreCase(file.getContentType())) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Only PDF files are allowed"));
             }
 
-            if (file.getSize() > 20 * 1024 * 1024) {
-                return ResponseEntity.badRequest().body(Map.of("error", "File size exceeds 20MB limit"));
+            byte[] signature = new byte[5];
+            int bytesRead;
+            try (var inputStream = file.getInputStream()) {
+                bytesRead = inputStream.read(signature);
+            }
+            if (bytesRead < signature.length || !"%PDF-".equals(new String(signature, java.nio.charset.StandardCharsets.US_ASCII))) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid PDF file. Please upload a valid PDF."));
+            }
+
+            int maxMb = r2Properties.getMaxFileSizeMb();
+            long maxBytes = (long) maxMb * 1024 * 1024;
+            if (file.getSize() > maxBytes) {
+                return ResponseEntity.badRequest().body(Map.of("error", "File size exceeds " + maxMb + "MB limit"));
             }
 
             if (courseCode == null || courseCode.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Course code is required"));
             }
 
-            Path storageRoot = Path.of(uploadDir).toAbsolutePath().normalize();
-            Files.createDirectories(storageRoot);
-            String safeName = originalName.replaceAll("[^A-Za-z0-9._-]", "_");
-            Path storedFile = storageRoot.resolve(UUID.randomUUID() + "_" + safeName).normalize();
-            if (!storedFile.startsWith(storageRoot)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Invalid file name"));
-            }
-            file.transferTo(storedFile);
-
             Document savedDoc;
-            try {
-                savedDoc = documentService.uploadDocument(
-                        title != null && !title.isBlank() ? title : originalName,
-                        content,
-                        courseCode,
-                        faculty,
-                        storedFile.toString(),
-                        file.getSize(),
-                        userEmail
-                );
-            } catch (IllegalArgumentException e) {
-                Files.deleteIfExists(storedFile);
-                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            boolean isR2 = r2Properties.isEnabled();
+
+            if (isR2) {
+                Long userId = (Long) session.getAttribute("userId");
+                if (userId == null) {
+                    userId = 0L; // Fallback
+                }
+                String r2ObjectKey = "documents/" + userId + "/" + UUID.randomUUID() + ".pdf";
+                
+                try {
+                    r2StorageService.uploadFile(r2ObjectKey, file.getBytes(), file.getContentType());
+                } catch (Exception e) {
+                    return ResponseEntity.status(500).body(Map.of("error", "R2 Upload failed: " + e.getMessage()));
+                }
+
+                try {
+                    savedDoc = documentService.uploadDocument(
+                            title != null && !title.isBlank() ? title : originalName,
+                            content,
+                            courseCode,
+                            faculty,
+                            r2ObjectKey,
+                            file.getSize(),
+                            userEmail,
+                            "R2"
+                    );
+                } catch (Exception e) {
+                    try {
+                        r2StorageService.deleteFile(r2ObjectKey);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                    return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+                }
+            } else {
+                Path storageRoot = Path.of(uploadDir).toAbsolutePath().normalize();
+                Files.createDirectories(storageRoot);
+                String safeName = originalName.replaceAll("[^A-Za-z0-9._-]", "_");
+                Path storedFile = storageRoot.resolve(UUID.randomUUID() + "_" + safeName).normalize();
+                if (!storedFile.startsWith(storageRoot)) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid file name"));
+                }
+                file.transferTo(storedFile);
+
+                try {
+                    savedDoc = documentService.uploadDocument(
+                            title != null && !title.isBlank() ? title : originalName,
+                            content,
+                            courseCode,
+                            faculty,
+                            storedFile.toString(),
+                            file.getSize(),
+                            userEmail
+                    );
+                } catch (IllegalArgumentException e) {
+                    Files.deleteIfExists(storedFile);
+                    return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+                }
             }
 
             return ResponseEntity.ok(documentService.convertToDTO(savedDoc, userEmail));
@@ -173,50 +233,106 @@ public class DocumentController {
     }
 
     @GetMapping("/{id}/file")
-    public ResponseEntity<Resource> viewFile(@PathVariable Long id) throws Exception {
-        Path file = documentService.getReadablePdfPath(id, false).orElseThrow();
-        Resource resource = new UrlResource(file.toUri());
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFileName() + "\"")
-                .body(resource);
+    public ResponseEntity<?> viewFile(@PathVariable Long id) throws Exception {
+        Document doc = documentService.getDocumentById(id).orElseThrow();
+        if ("R2".equals(doc.getStorageProvider())) {
+            int ttl = r2Properties.getPresignedUrlTtlSeconds();
+            String presignedUrl = r2StorageService.generatePresignedGetUrl(
+                    doc.getFilePath(),
+                    ttl,
+                    doc.getTitle() + ".pdf",
+                    false
+            );
+            return ResponseEntity.status(302)
+                    .location(java.net.URI.create(presignedUrl))
+                    .build();
+        } else {
+            Path file = documentService.getReadablePdfPath(id, false).orElseThrow();
+            Resource resource = new UrlResource(file.toUri());
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFileName() + "\"")
+                    .body(resource);
+        }
     }
 
     @GetMapping("/{id}/download")
-    public ResponseEntity<Resource> downloadFile(@PathVariable Long id) throws Exception {
-        Path file = documentService.getReadablePdfPath(id, true).orElseThrow();
-        Resource resource = new UrlResource(file.toUri());
+    public ResponseEntity<?> downloadFile(@PathVariable Long id) throws Exception {
+        Document doc = documentService.getDocumentById(id).orElseThrow();
         documentService.incrementDownloadCount(id);
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"")
-                .body(resource);
+        if ("R2".equals(doc.getStorageProvider())) {
+            int ttl = r2Properties.getPresignedUrlTtlSeconds();
+            String presignedUrl = r2StorageService.generatePresignedGetUrl(
+                    doc.getFilePath(),
+                    ttl,
+                    doc.getTitle() + ".pdf",
+                    true
+            );
+            return ResponseEntity.status(302)
+                    .location(java.net.URI.create(presignedUrl))
+                    .build();
+        } else {
+            Path file = documentService.getReadablePdfPath(id, true).orElseThrow();
+            Resource resource = new UrlResource(file.toUri());
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"")
+                    .body(resource);
+        }
     }
 
     @GetMapping(value = "/{id}/thumbnail", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<Resource> thumbnail(@PathVariable Long id) {
         try {
-            var pdfOpt = documentService.getReadablePdfPath(id, false);
-            if (pdfOpt.isEmpty()) {
-                return ResponseEntity.notFound().build();
-            }
+            Document doc = documentService.getDocumentById(id).orElseThrow();
+            boolean isR2 = "R2".equals(doc.getStorageProvider());
+            
+            Path thumbnail = null;
+            if (isR2) {
+                Path thumbDir = Path.of(uploadDir).resolve("thumbnails").toAbsolutePath().normalize();
+                Files.createDirectories(thumbDir);
+                String safeName = doc.getTitle().replaceAll("[^A-Za-z0-9._-]", "_");
+                thumbnail = thumbDir.resolve("r2_" + doc.getId() + "_" + safeName + ".png");
+                
+                if (!Files.exists(thumbnail)) {
+                    byte[] pdfBytes = r2StorageService.downloadFileBytes(doc.getFilePath());
+                    Path tempPdf = Files.createTempFile("r2_temp_", ".pdf");
+                    try {
+                        Files.write(tempPdf, pdfBytes);
+                        try (PDDocument pdfDocument = Loader.loadPDF(tempPdf.toFile())) {
+                            PDFRenderer renderer = new PDFRenderer(pdfDocument);
+                            BufferedImage image = renderer.renderImageWithDPI(0, 96, ImageType.RGB);
+                            if (!ImageIO.write(image, "png", thumbnail.toFile())) {
+                                return ResponseEntity.notFound().build();
+                            }
+                        }
+                    } finally {
+                        Files.deleteIfExists(tempPdf);
+                    }
+                }
+            } else {
+                var pdfOpt = documentService.getReadablePdfPath(id, false);
+                if (pdfOpt.isEmpty()) {
+                    return ResponseEntity.notFound().build();
+                }
 
-            Path pdf = pdfOpt.get();
-            Path pdfParent = pdf.getParent();
-            if (pdfParent == null) {
-                return ResponseEntity.notFound().build();
-            }
+                Path pdf = pdfOpt.get();
+                Path pdfParent = pdf.getParent();
+                if (pdfParent == null) {
+                    return ResponseEntity.notFound().build();
+                }
 
-            Path thumbDir = pdfParent.resolve("thumbnails");
-            Files.createDirectories(thumbDir);
-            Path thumbnail = thumbDir.resolve(pdf.getFileName().toString() + ".png");
+                Path thumbDir = pdfParent.resolve("thumbnails");
+                Files.createDirectories(thumbDir);
+                thumbnail = thumbDir.resolve(pdf.getFileName().toString() + ".png");
 
-            if (!Files.exists(thumbnail)) {
-                try (PDDocument document = Loader.loadPDF(pdf.toFile())) {
-                    PDFRenderer renderer = new PDFRenderer(document);
-                    BufferedImage image = renderer.renderImageWithDPI(0, 96, ImageType.RGB);
-                    if (!ImageIO.write(image, "png", thumbnail.toFile())) {
-                        return ResponseEntity.notFound().build();
+                if (!Files.exists(thumbnail)) {
+                    try (PDDocument pdfDocument = Loader.loadPDF(pdf.toFile())) {
+                        PDFRenderer renderer = new PDFRenderer(pdfDocument);
+                        BufferedImage image = renderer.renderImageWithDPI(0, 96, ImageType.RGB);
+                        if (!ImageIO.write(image, "png", thumbnail.toFile())) {
+                            return ResponseEntity.notFound().build();
+                        }
                     }
                 }
             }

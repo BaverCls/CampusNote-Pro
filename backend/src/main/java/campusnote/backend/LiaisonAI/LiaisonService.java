@@ -71,8 +71,8 @@ public class LiaisonService {
         
         documentRepository.findById(docId).ifPresent(doc -> {
             try {
-                // Update status to UNDER REVIEW (FR-ST-24)
-                doc.setStatus("UNDER REVIEW");
+                // Update status to DRAFT (FR-ST-24)
+                doc.setStatus("DRAFT");
                 documentRepository.save(doc);
 
                 notificationService.createForUser(
@@ -98,6 +98,21 @@ public class LiaisonService {
                     logger.warn("Liaison AI: PyTorch Service unavailable, falling back to local scoring. Doc ID [{}], Error: {}", docId, e.getMessage());
                     score = calculateScore(extractedText, doc.getCourseCode());
                 }
+
+                if (score < 0 || score > 100) {
+                    String message = String.format("Document rejected because Liaison AI returned an invalid AI score: %d.", score);
+                    logger.warn("Liaison AI: Invalid AI score for Doc ID [{}]: {}", docId, score);
+                    doc.setStatus("REJECTED");
+                    documentRepository.save(doc);
+                    notificationService.createForUser(
+                            doc.getUser(),
+                            doc.getId(),
+                            "DOCUMENT_REJECTED",
+                            "Document rejected",
+                            message
+                    );
+                    return;
+                }
                 
                 // Finalize evaluation (FR-ST-28, 29, 30)
                 documentService.finalizeAIRanking(docId, score);
@@ -105,7 +120,7 @@ public class LiaisonService {
                 logger.info("Liaison AI: Completed evaluation for Doc ID [{}], Score: {}", docId, score);
             } catch (InterruptedException | IOException | RuntimeException e) {
                 logger.error("Liaison AI: Evaluation failed for Doc ID [{}]", docId, e);
-                doc.setStatus("FAILED");
+                doc.setStatus("REJECTED");
                 documentRepository.save(doc);
             }
         });

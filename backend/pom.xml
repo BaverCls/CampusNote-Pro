@@ -86,6 +86,13 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- AWS SDK for Java v2 (S3) for Cloudflare R2 -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<version>2.25.15</version>
+		</dependency>
+
 		<!-- BDD/TDD: Cucumber Dependencies -->
 		<dependency>
 			<groupId>io.cucumber</groupId>

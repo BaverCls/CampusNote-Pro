@@ -58,10 +58,26 @@ export function LeaderboardWidget({ isLoading: externalLoading }: LeaderboardWid
     }
   };
 
-  const getRankColor = (coins: number) => {
-    if (coins > 5000) return 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500';
-    if (coins > 1000) return 'bg-gradient-to-br from-amber-400 to-amber-600';
-    return 'bg-gradient-to-br from-slate-400 to-slate-600';
+  const getRankConfig = (coins: number) => {
+    if (coins > 5000) {
+      return {
+        label: 'Platinum',
+        badge: 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 dark:border-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.15)]',
+        avatar: 'bg-gradient-to-br from-slate-300 via-indigo-100 to-slate-400 dark:from-slate-700 dark:via-slate-800 dark:to-indigo-950 text-slate-900 dark:text-slate-100 border border-indigo-200/30 dark:border-indigo-900/30',
+      };
+    }
+    if (coins > 1000) {
+      return {
+        label: 'Gold',
+        badge: 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-900/40 text-amber-700 dark:text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.12)]',
+        avatar: 'bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 text-white border border-yellow-300/40 dark:border-yellow-600/40',
+      };
+    }
+    return {
+      label: 'Bronze',
+      badge: 'bg-[#f4eadf] dark:bg-[#3a2418]/45 border border-[#b47a48]/40 dark:border-[#8a5a35]/45 text-[#6f4528] dark:text-[#d2a06f] shadow-[0_0_8px_rgba(111,69,40,0.08)]',
+      avatar: 'bg-gradient-to-br from-[#8a5a35] via-[#6f4528] to-[#4b2f1f] text-white border border-[#8a5a35]/45 dark:border-[#b47a48]/35',
+    };
   };
 
   const isLoading = (externalLoading || loading) && users.length === 0;
@@ -103,36 +119,39 @@ export function LeaderboardWidget({ isLoading: externalLoading }: LeaderboardWid
         </div>
       ) : (
         <div className="space-y-3">
-          {users.map((user, index) => (
-            <div
-              key={user.id}
-              className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30 group"
-            >
-              <div className="flex-shrink-0 w-6 flex justify-center">
-                {getPositionIcon(index + 1)}
-              </div>
-              <div className="relative">
-                <div className={`w-10 h-10 ${getRankColor(user.coinBalance)} rounded-full flex items-center justify-center font-black text-white text-sm shadow-md group-hover:scale-110 transition-transform`}>
-                  {user.fullName?.charAt(0) || user.email.charAt(0).toUpperCase()}
+          {users.map((user, index) => {
+            const rankConfig = getRankConfig(user.coinBalance);
+            return (
+              <div
+                key={user.id}
+                className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30 group"
+              >
+                <div className="flex-shrink-0 w-6 flex justify-center">
+                  {getPositionIcon(index + 1)}
                 </div>
-                {index === 0 && (
-                  <div className="absolute -top-1 -right-1 bg-amber-500 rounded-full p-0.5 border-2 border-white dark:border-slate-900">
-                    <Crown className="w-2 h-2 text-white" />
+                <div className="relative">
+                  <div className={`w-10 h-10 ${rankConfig.avatar} rounded-full flex items-center justify-center font-black text-sm shadow-md group-hover:scale-110 transition-transform`}>
+                    {user.fullName?.charAt(0) || user.email.charAt(0).toUpperCase()}
                   </div>
-                )}
+                  {index === 0 && (
+                    <div className="absolute -top-1 -right-1 bg-amber-500 rounded-full p-0.5 border-2 border-white dark:border-slate-900">
+                      <Crown className="w-2 h-2 text-white" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col gap-1 items-start">
+                  <p className="text-sm text-slate-900 dark:text-white truncate font-bold">{user.fullName || user.email.split('@')[0]}</p>
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${rankConfig.badge}`}>
+                    {rankConfig.label}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-black text-amber-600 dark:text-amber-500">{user.coinBalance.toLocaleString()}</p>
+                  <p className="text-[8px] text-slate-400 font-bold uppercase">coins</p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-900 dark:text-white truncate font-bold">{user.fullName || user.email.split('@')[0]}</p>
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-tighter">
-                  {user.coinBalance > 5000 ? 'Platinum' : user.coinBalance > 1000 ? 'Gold' : 'Bronze'}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-black text-amber-600 dark:text-amber-500">{user.coinBalance.toLocaleString()}</p>
-                <p className="text-[8px] text-slate-400 font-bold uppercase">coins</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

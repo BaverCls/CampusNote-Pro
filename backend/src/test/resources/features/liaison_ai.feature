@@ -17,3 +17,11 @@ Feature: Liaison AI scoring
     When the evaluation is triggered
     Then the score returned by the PyTorch service is saved
 
+  Scenario: AI score outside valid range is rejected
+    Given a document waits for AI evaluation
+    And the AI service returns score 999
+    When the evaluation is triggered
+    Then the system rejects the document
+    And the final score does not use 999
+    And the rejection reason mentions invalid AI score
+

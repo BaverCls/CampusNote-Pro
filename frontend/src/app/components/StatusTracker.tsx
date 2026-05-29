@@ -14,6 +14,8 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
   const [errorMessage, setErrorMessage] = useState('');
   const currentUser = AuthService.getCurrentUser();
 
+  const [statusFilter, setStatusFilter] = useState<'LATEST' | 'PUBLISHED' | 'REJECTED' | 'DRAFT'>('LATEST');
+
   const fetchMyDocs = async () => {
     if (!currentUser) return;
     try {
@@ -83,13 +85,33 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
     }
   };
 
+  const filteredDocuments = documents.filter(doc => {
+    if (statusFilter === 'LATEST') return true;
+    if (statusFilter === 'PUBLISHED') return doc.status === 'PUBLISHED';
+    if (statusFilter === 'REJECTED') return doc.status === 'REJECTED';
+    if (statusFilter === 'DRAFT') return doc.status === 'DRAFT' || doc.status === 'UNDER REVIEW';
+    return true;
+  });
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 transition-all shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-slate-900 dark:text-white font-bold tracking-tight">Submission Status</h3>
-        <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 px-2 py-1 rounded-full font-black uppercase">
-          Live Tracking
-        </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-2">
+          <h3 className="text-slate-900 dark:text-white font-bold tracking-tight">Submission Status</h3>
+          <span className="hidden sm:inline text-[9px] bg-indigo-50 dark:bg-indigo-950 text-indigo-600 px-2 py-0.5 rounded-full font-black uppercase">
+            Live
+          </span>
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
+          className="text-xs px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 outline-none"
+        >
+          <option value="LATEST">Latest</option>
+          <option value="PUBLISHED">Published</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="DRAFT">Draft</option>
+        </select>
       </div>
       
       {(loading || parentLoading) && documents.length === 0 ? (
@@ -101,17 +123,22 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
           <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
           <p className="text-sm text-red-600 dark:text-red-400 font-semibold">{errorMessage}</p>
         </div>
-      ) : documents.length === 0 ? (
+      ) : filteredDocuments.length === 0 ? (
         <div className="text-center py-10">
           <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-3">
             <FileText className="w-6 h-6 text-slate-300 dark:text-slate-700" />
           </div>
-          <p className="text-sm text-slate-700 dark:text-slate-300 font-bold">No uploads yet</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Upload your first note to start earning CampusCoins.</p>
+          <p className="text-sm text-slate-700 dark:text-slate-300 font-bold">No submissions found</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {statusFilter === 'PUBLISHED' && "You don't have any published documents yet."}
+            {statusFilter === 'REJECTED' && "No rejected documents found. Excellent!"}
+            {statusFilter === 'DRAFT' && "You don't have any draft or under-review documents currently."}
+            {statusFilter === 'LATEST' && "Upload your first note to start earning CampusCoins."}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {documents.map((doc) => {
+          {filteredDocuments.map((doc) => {
             const statusDetails = getStatusDetails(doc.status);
             const StatusIcon = statusDetails.icon;
             return (
@@ -125,7 +152,7 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
                     {doc.title}
                   </p>
                   <p className="text-[10px] text-slate-500 font-black uppercase tracking-tighter">
-                    {doc.courseCode}
+                    {doc.courseCode} - {doc.courseName || 'Unknown course'}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     {statusDetails.description}

@@ -130,7 +130,7 @@ class DocumentServiceTest {
 
         documentService.finalizeAIRanking(10L, 79);
 
-        assertEquals("FLAGGED", doc.getStatus());
+        assertEquals("REJECTED", doc.getStatus());
         assertEquals(0, doc.getIsPublic());
     }
 
@@ -147,7 +147,7 @@ class DocumentServiceTest {
         assertTrue(documentService.reportDocument(10L));
 
         assertEquals(5, doc.getReportCount());
-        assertEquals("FLAGGED", doc.getStatus());
+        assertEquals("REJECTED", doc.getStatus());
         assertEquals(0, doc.getIsPublic());
     }
 
@@ -223,8 +223,8 @@ class DocumentServiceTest {
         verify(notificationService).createForUser(
                 eq(user),
                 eq(10L),
-                eq("DOCUMENT_FLAGGED"),
-                eq("Document flagged"),
+                eq("DOCUMENT_REJECTED"),
+                eq("Document rejected"),
                 contains("Reported Notes")
         );
     }

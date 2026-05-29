@@ -21,6 +21,7 @@ interface DocumentApiDTO {
   title: string;
   description?: string;
   courseCode: string;
+  courseName?: string;
   faculty?: string;
   departmentName?: string;
   score?: number;
@@ -59,6 +60,7 @@ const toNoteDocument = (doc: DocumentApiDTO): NoteDocument => ({
   title: doc.title,
   description: doc.description,
   courseCode: doc.courseCode,
+  courseName: doc.courseName,
   faculty: doc.faculty || '',
   departmentName: doc.departmentName,
   uploader: doc.uploaderName || 'Anonymous',

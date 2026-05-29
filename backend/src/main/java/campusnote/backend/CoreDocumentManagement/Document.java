@@ -22,6 +22,9 @@ public class Document {
     @Column(name = "course_code", nullable = false)
     private String courseCode;
 
+    @Column(nullable = false)
+    private String faculty = "Engineering";
+
     @Lob
     private String content;
 
@@ -54,6 +57,9 @@ public class Document {
 
     @Column(name = "file_size")
     private Long fileSize = 0L;
+
+    @Column(name = "storage_provider")
+    private String storageProvider = "LOCAL";
 
     @Column(name = "thumbnail_path")
     private String thumbnailPath;

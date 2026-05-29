@@ -47,7 +47,7 @@ public class AdminController {
         
         long totalDocs = documentRepository.count();
         long flaggedCount = documentRepository.findAll().stream()
-                .filter(doc -> "FLAGGED".equals(doc.getStatus()))
+                .filter(doc -> "REJECTED".equals(doc.getStatus()))
                 .count();
         
         double storageUsedGb = documentService.getTotalStoredBytes() / 1024.0 / 1024.0 / 1024.0;
@@ -143,7 +143,7 @@ public class AdminController {
         
         // FR-ST-52: Documents with FLAGGED status
         List<DocumentDTO> flagged = documentRepository.findAll().stream()
-                .filter(doc -> "FLAGGED".equals(doc.getStatus()))
+                .filter(doc -> "REJECTED".equals(doc.getStatus()))
                 .map(doc -> documentService.convertToDTO(doc, getAdminEmail(session)))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(flagged);

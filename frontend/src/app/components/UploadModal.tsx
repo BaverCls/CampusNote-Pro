@@ -69,9 +69,9 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         return;
       }
       
-      // FR-ST-16: 20MB limit
-      if (file.size > 20 * 1024 * 1024) {
-        setUploadError('File size exceeds 20MB limit.');
+      // FR-ST-16: 50MB limit
+      if (file.size > 50 * 1024 * 1024) {
+        setUploadError('File size exceeds 50MB limit.');
         return;
       }
       
@@ -116,9 +116,10 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             toast.success(`${uploaded.title} passed AI verification and is now published.`);
             window.clearInterval(interval);
             if (onSuccess) onSuccess();
-          } else if (uploaded?.status === 'FLAGGED' || uploaded?.status === 'FAILED') {
-            toast.error(`${uploaded.title} needs moderation after AI review.`);
+          } else if (uploaded?.status === 'REJECTED' || uploaded?.status === 'FLAGGED' || uploaded?.status === 'FAILED') {
+            toast.error(`${uploaded.title} was uploaded but rejected by review.`);
             window.clearInterval(interval);
+            if (onSuccess) onSuccess();
           } else if (checks >= 8) {
             window.clearInterval(interval);
           }
@@ -129,7 +130,14 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         return;
       }
       console.error('Document Upload Error:', error);
-      setUploadError('Upload failed. Please try again.');
+      const errorMsg = error instanceof Error ? error.message : '';
+      if (errorMsg.includes('413')) {
+        setUploadError('File is too large. Maximum allowed size is 50 MB.');
+      } else if (errorMsg.includes('400')) {
+        setUploadError('Only PDF files are allowed.');
+      } else {
+        setUploadError('Upload failed. Please try again.');
+      }
     } finally {
       setIsUploading(false);
     }
@@ -157,9 +165,9 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
         setUploadError('Only PDF files are allowed.');
         return;
       }
-      // FR-ST-16: 20MB limit
-      if (file.size > 20 * 1024 * 1024) {
-        setUploadError('File size exceeds 20MB limit.');
+      // FR-ST-16: 50MB limit
+      if (file.size > 50 * 1024 * 1024) {
+        setUploadError('File size exceeds 50MB limit.');
         return;
       }
       setUploadError('');
@@ -204,16 +212,31 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
             }`}
           >
             {selectedFile ? (
-              <div className="flex items-center justify-center gap-3">
-                <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                  <FileText className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+              <div className="flex items-center justify-between gap-3 p-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl w-full max-w-md mx-auto shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                    <FileText className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div className="text-left truncate max-w-[200px] sm:max-w-xs">
+                    <p className="text-slate-900 dark:text-white font-semibold truncate text-sm">{selectedFile.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-slate-900 dark:text-white font-semibold">{selectedFile.name}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setUploadError('');
+                    const fileInput = document.getElementById('note-file-input') as HTMLInputElement;
+                    if (fileInput) fileInput.value = '';
+                  }}
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 hover:text-red-600 transition-colors"
+                  aria-label="Remove file"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             ) : (
               <>
@@ -227,6 +250,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
                 <label className="inline-block px-6 py-2 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-700 transition-all font-semibold shadow-md active:scale-95">
                   Browse Files
                   <input
+                    id="note-file-input"
                     type="file"
                     accept="application/pdf"
                     onChange={handleFileChange}
@@ -234,7 +258,7 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
                   />
                 </label>
                 <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mt-4">
-                  Maximum file size: 20MB
+                  Maximum file size: 50MB
                 </p>
               </>
             )}

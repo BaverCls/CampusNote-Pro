@@ -14,6 +14,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 class LiaisonServiceTest {
@@ -140,5 +141,43 @@ class LiaisonServiceTest {
         // "functions" also matches the "function" keyword via contains().
         // Score = (6/7) * 100 = 85
         verify(documentService).finalizeAIRanking(eq(10L), eq(85));
+    }
+
+    @Test
+    void evaluateRejectsAiScoreOutsideValidRange() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("student@arel.edu.tr");
+
+        Document doc = new Document();
+        doc.setId(10L);
+        doc.setTitle("Computer Networks");
+        doc.setFilePath("uploads/mock.pdf");
+        doc.setStatus("DRAFT");
+        doc.setCourseCode("CS101");
+        doc.setUser(user);
+
+        when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
+
+        HttpClient mockHttpClient = mock(HttpClient.class);
+        @SuppressWarnings("unchecked")
+        HttpResponse<String> mockResponse = mock(HttpResponse.class);
+        when(mockResponse.statusCode()).thenReturn(200);
+        when(mockResponse.body()).thenReturn("{\"documentId\":10,\"score\":999,\"decision\":\"PUBLISH\",\"confidence\":0.99,\"matchedSignals\":[\"algorithm\"],\"modelVersion\":\"pytorch-demo-v1\"}");
+        doReturn(mockResponse).when(mockHttpClient).send(any(), any());
+
+        ReflectionTestUtils.setField(liaisonService, "httpClient", mockHttpClient);
+
+        liaisonService.triggerEvaluation(10L);
+
+        assertEquals("REJECTED", doc.getStatus());
+        verify(documentService, never()).finalizeAIRanking(eq(10L), eq(999));
+        verify(notificationService).createForUser(
+                eq(user),
+                eq(10L),
+                eq("DOCUMENT_REJECTED"),
+                eq("Document rejected"),
+                contains("invalid AI score")
+        );
     }
 }

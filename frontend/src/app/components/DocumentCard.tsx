@@ -6,6 +6,7 @@ interface DocumentCardProps {
   title: string;
   description?: string;
   courseCode: string;
+  courseName?: string;
   faculty?: string;
   departmentName?: string;
   uploader: string;
@@ -28,6 +29,7 @@ export function DocumentCard({
   title,
   description,
   courseCode,
+  courseName,
   faculty,
   departmentName,
   uploader,
@@ -170,7 +172,7 @@ export function DocumentCard({
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <h3 className="text-slate-900 dark:text-white font-semibold mb-1 line-clamp-1">{title}</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{courseCode}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{courseCode} - {courseName || 'Unknown course'}</p>
         </div>
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusConfig.classes}`}>
           <StatusIcon className="w-3.5 h-3.5" />
@@ -351,7 +353,7 @@ export function DocumentCard({
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{courseCode}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{courseCode} - {courseName || 'Unknown course'}</p>
               </div>
               <button
                 onClick={() => setDetailsOpen(false)}
@@ -370,7 +372,7 @@ export function DocumentCard({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <DetailField label="Faculty" value={formatValue(faculty)} />
                 <DetailField label="Department" value={formatValue(departmentName)} />
-                <DetailField label="Course" value={formatValue(courseCode)} />
+                <DetailField label="Course" value={`${courseCode} - ${courseName || 'Unknown course'}`} />
                 <DetailField label="Status" value={statusConfig.label} />
                 <DetailField label="Uploader" value={formatValue(uploader)} />
                 <DetailField label="Upload date" value={formatValue(uploadDate)} />

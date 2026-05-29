@@ -43,7 +43,7 @@ public class RewardsSteps {
         document.setId(20L);
         document.setUser(user);
         document.setCourse(course);
-        document.setStatus("UNDER REVIEW");
+        document.setStatus("UNDER_REVIEW");
     }
 
     @When("the document is successfully published")

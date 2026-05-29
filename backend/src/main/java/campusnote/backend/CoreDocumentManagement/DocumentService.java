@@ -23,26 +23,49 @@ public class DocumentService {
     private final LiaisonService liaisonService;
     private final GamificationService gamificationService;
     private final NotificationService notificationService;
+    private R2Properties r2Properties;
+    private R2StorageService r2StorageService;
 
     // FR-DOC-64: Global AI algorithm passing score
     private int globalAiThreshold = 80;
 
+    // Keep the original constructor for backward compatibility in tests
     public DocumentService(DocumentRepository documentRepository, 
                            UserRepository userRepository,
                            CourseRepository courseRepository,
                            @Lazy LiaisonService liaisonService,
                            GamificationService gamificationService,
                            NotificationService notificationService) {
+        this(documentRepository, userRepository, courseRepository, liaisonService, gamificationService, notificationService, null, null);
+    }
+
+    // Full constructor for runtime injection
+    @org.springframework.beans.factory.annotation.Autowired
+    public DocumentService(DocumentRepository documentRepository, 
+                           UserRepository userRepository,
+                           CourseRepository courseRepository,
+                           @Lazy LiaisonService liaisonService,
+                           GamificationService gamificationService,
+                           NotificationService notificationService,
+                           @org.springframework.context.annotation.Lazy R2Properties r2Properties,
+                           @org.springframework.context.annotation.Lazy R2StorageService r2StorageService) {
         this.documentRepository = documentRepository;
         this.userRepository = userRepository;
         this.courseRepository = courseRepository;
         this.liaisonService = liaisonService;
         this.gamificationService = gamificationService;
         this.notificationService = notificationService;
+        this.r2Properties = r2Properties;
+        this.r2StorageService = r2StorageService;
     }
 
     @Transactional
     public Document uploadDocument(String title, String content, String courseCode, String faculty, String filePath, Long fileSize, String userEmail) {
+        return uploadDocument(title, content, courseCode, faculty, filePath, fileSize, userEmail, "LOCAL");
+    }
+
+    @Transactional
+    public Document uploadDocument(String title, String content, String courseCode, String faculty, String filePath, Long fileSize, String userEmail, String storageProvider) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
         String normalizedCourseCode = courseCode != null ? courseCode.trim().toUpperCase() : "";
@@ -55,6 +78,8 @@ public class DocumentService {
         doc.setUser(user);
         doc.setFilePath(filePath);
         doc.setFileSize(fileSize != null ? fileSize : 0L);
+        doc.setStorageProvider(storageProvider != null ? storageProvider : "LOCAL");
+        doc.setFaculty(faculty != null && !faculty.isBlank() ? faculty : "Engineering");
         doc.setCourseCode(course.getCode());
         doc.setCourse(course);
         
@@ -85,7 +110,7 @@ public class DocumentService {
                 awardCoinsForDocument(doc);
             } else {
                 // FR-DOC-29: Flag if below threshold
-                doc.setStatus("FLAGGED");
+                doc.setStatus("REJECTED");
                 doc.setIsPublic(0);
             }
             documentRepository.save(doc);
@@ -171,8 +196,12 @@ public class DocumentService {
 
     @Transactional(readOnly = true)
     public DocumentDTO convertToDTO(Document doc, String currentUserEmail) {
+        if (doc.getId() != null) {
+            doc = documentRepository.findById(doc.getId()).orElse(doc);
+        }
         String uploaderName = (doc.getUser() != null) ? doc.getUser().getFullName() : "Anonymous";
         String courseCode = (doc.getCourse() != null) ? doc.getCourse().getCode() : "N/A";
+        String courseName = (doc.getCourse() != null) ? doc.getCourse().getName() : "N/A";
         Long courseId = (doc.getCourse() != null) ? doc.getCourse().getId() : null;
         Long userId = (doc.getUser() != null) ? doc.getUser().getId() : null;
         
@@ -196,6 +225,7 @@ public class DocumentService {
         dto.setUploaderName(uploaderName);
         dto.setCourseId(courseId);
         dto.setCourseCode(courseCode);
+        dto.setCourseName(courseName);
         dto.setFacultyId(facultyId);
         dto.setFacultyName(facultyName);
         dto.setFaculty(facultyName);
@@ -232,7 +262,7 @@ public class DocumentService {
                     doc.setIsPublic(1);
                     awardCoinsForDocument(doc);
                 } else {
-                    doc.setStatus("FLAGGED");
+                    doc.setStatus("REJECTED");
                     doc.setIsPublic(0);
                 }
             } else {
@@ -249,7 +279,7 @@ public class DocumentService {
     public boolean flagDocument(Long id) {
         return documentRepository.findById(id).map(doc -> {
             String previousStatus = doc.getStatus();
-            doc.setStatus("FLAGGED");
+            doc.setStatus("REJECTED");
             doc.setIsPublic(0);
             documentRepository.save(doc);
             notifyDocumentStatusChanged(doc, previousStatus);
@@ -299,6 +329,13 @@ public class DocumentService {
     @Transactional
     public boolean deleteDocument(Long id) {
         return documentRepository.findById(id).map(doc -> {
+            if ("R2".equals(doc.getStorageProvider()) && r2StorageService != null) {
+                try {
+                    r2StorageService.deleteFile(doc.getFilePath());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
             doc.getLikedByUsers().clear();
             documentRepository.save(doc);
             documentRepository.delete(doc);
@@ -313,7 +350,7 @@ public class DocumentService {
             String previousStatus = doc.getStatus();
             doc.setReportCount((doc.getReportCount() != null ? doc.getReportCount() : 0) + 1);
             if (doc.getReportCount() >= 5) {
-                doc.setStatus("FLAGGED");
+                doc.setStatus("REJECTED");
                 doc.setIsPublic(0);
             }
             documentRepository.save(doc);
@@ -378,6 +415,11 @@ public class DocumentService {
                 .filter(size -> size != null && size > 0)
                 .mapToLong(Long::longValue)
                 .sum();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Document> getDocumentById(Long id) {
+        return documentRepository.findById(id);
     }
 
     private Department getDepartmentFromCourse(Document doc) {

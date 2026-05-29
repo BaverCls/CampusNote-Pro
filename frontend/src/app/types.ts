@@ -3,6 +3,7 @@ export interface NoteDocument {
   title: string;
   description?: string;
   courseCode: string;
+  courseName?: string;
   faculty?: string;
   departmentName?: string;
   uploader?: string;

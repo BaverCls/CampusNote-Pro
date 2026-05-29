@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 public class DocumentUploadSteps {
 
     private DocumentService documentService;
+    private R2StorageService r2StorageService;
     private MockMvc mockMvc;
     private Path uploadDir;
     private MockMultipartFile uploadFile;
@@ -32,6 +33,7 @@ public class DocumentUploadSteps {
     @Before
     public void setUp() throws Exception {
         documentService = mock(DocumentService.class);
+        r2StorageService = mock(R2StorageService.class);
         DocumentController controller = new DocumentController(documentService);
         uploadDir = Files.createTempDirectory("campusnote-bdd-upload");
         ReflectionTestUtils.setField(controller, "uploadDir", uploadDir.toString());
@@ -57,6 +59,15 @@ public class DocumentUploadSteps {
         userEmail = "student@arel.edu.tr";
     }
 
+    @Given("R2 storage is enabled")
+    public void r2StorageIsEnabled() {
+        R2Properties r2Properties = new R2Properties();
+        ReflectionTestUtils.setField(r2Properties, "enabled", true);
+        ReflectionTestUtils.setField(r2Properties, "maxFileSizeMb", 50);
+        DocumentController controller = new DocumentController(documentService, r2Properties, r2StorageService);
+        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    }
+
     @Given("the student selected a valid PDF named {string}")
     public void theStudentSelectedAValidPdfNamed(String fileName) {
         uploadFile = new MockMultipartFile("file", fileName, "application/pdf", "%PDF-1.4 valid notes".getBytes());
@@ -66,6 +77,11 @@ public class DocumentUploadSteps {
     @Given("the student selected a non-PDF file named {string}")
     public void theStudentSelectedANonPdfFileNamed(String fileName) {
         uploadFile = new MockMultipartFile("file", fileName, "text/plain", "not a pdf".getBytes());
+    }
+
+    @Given("the student selected a spoof PDF named {string}")
+    public void theStudentSelectedASpoofPdfNamed(String fileName) {
+        uploadFile = new MockMultipartFile("file", fileName, "application/pdf", "not a real pdf".getBytes());
     }
 
     @When("the student uploads the file for course {string}")
@@ -104,6 +120,12 @@ public class DocumentUploadSteps {
     @Then("no document metadata is saved")
     public void noDocumentMetadataIsSaved() {
         verify(documentService, never()).uploadDocument(any(), any(), any(), any(), any(), anyLong(), any());
+        verify(documentService, never()).uploadDocument(any(), any(), any(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Then("no file is uploaded to R2")
+    public void noFileIsUploadedToR2() {
+        verify(r2StorageService, never()).uploadFile(any(), any(), any());
     }
 
     private void stubSuccessfulUpload() {

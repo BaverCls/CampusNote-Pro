@@ -13,6 +13,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
@@ -88,6 +89,38 @@ public class LiaisonAiSteps {
         when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
     }
 
+    @Given("a document waits for AI evaluation")
+    public void aDocumentWaitsForAiEvaluation() {
+        documentRepository = mock(DocumentRepository.class);
+        documentService = mock(DocumentService.class);
+        notificationService = mock(NotificationService.class);
+        liaisonService = new LiaisonService(documentRepository, documentService, notificationService);
+
+        doc = new Document();
+        doc.setId(10L);
+        doc.setTitle("Test Doc");
+        doc.setFilePath("uploads/mock.pdf");
+        doc.setStatus("DRAFT");
+        doc.setCourseCode("CS101");
+
+        when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
+    }
+
+    @Given("the AI service returns score {int}")
+    public void theAiServiceReturnsScore(int aiScore) throws Exception {
+        HttpClient mockHttpClient = mock(HttpClient.class);
+        @SuppressWarnings("unchecked")
+        HttpResponse<String> mockResponse = mock(HttpResponse.class);
+        when(mockResponse.statusCode()).thenReturn(200);
+        when(mockResponse.body()).thenReturn(String.format(
+                "{\"documentId\":10,\"score\":%d,\"decision\":\"PUBLISH\",\"confidence\":0.99,\"matchedSignals\":[\"algorithm\"],\"modelVersion\":\"pytorch-demo-v1\"}",
+                aiScore
+        ));
+        doReturn(mockResponse).when(mockHttpClient).send(any(), any());
+
+        ReflectionTestUtils.setField(liaisonService, "httpClient", mockHttpClient);
+    }
+
     @When("the evaluation is triggered")
     public void theEvaluationIsTriggered() {
         liaisonService.triggerEvaluation(10L);
@@ -96,6 +129,27 @@ public class LiaisonAiSteps {
     @Then("the score returned by the PyTorch service is saved")
     public void theScoreReturnedByThePyTorchServiceIsSaved() {
         verify(documentService).finalizeAIRanking(eq(10L), eq(95));
+    }
+
+    @Then("the system rejects the document")
+    public void theSystemRejectsTheDocument() {
+        assertEquals("REJECTED", doc.getStatus());
+    }
+
+    @Then("the final score does not use {int}")
+    public void theFinalScoreDoesNotUse(int invalidScore) {
+        verify(documentService, never()).finalizeAIRanking(eq(10L), eq(invalidScore));
+    }
+
+    @Then("the rejection reason mentions invalid AI score")
+    public void theRejectionReasonMentionsInvalidAiScore() {
+        verify(notificationService).createForUser(
+                any(),
+                eq(10L),
+                eq("DOCUMENT_REJECTED"),
+                eq("Document rejected"),
+                contains("invalid AI score")
+        );
     }
 }
 

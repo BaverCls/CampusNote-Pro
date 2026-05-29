@@ -19,6 +19,7 @@ public class DocumentDTO {
     private String uploadedAt;
     private Long courseId;
     private String courseCode;
+    private String courseName;
     private Long facultyId;
     private String facultyName;
     private Long departmentId;

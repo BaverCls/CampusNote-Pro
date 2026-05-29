@@ -15,3 +15,12 @@ Feature: PDF upload and storage
     When the student uploads the file for course "CS101"
     Then the upload API rejects the request with "Only PDF files are allowed"
     And no document metadata is saved
+
+  Scenario: Spoof PDF is rejected before R2 storage
+    Given an authenticated student session
+    And R2 storage is enabled
+    And the student selected a spoof PDF named "fake-notes.pdf"
+    When the student uploads the file for course "CS101"
+    Then the upload API rejects the request with "Invalid PDF file"
+    And no file is uploaded to R2
+    And no document metadata is saved

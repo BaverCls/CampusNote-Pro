@@ -290,11 +290,23 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
             </div>
 
             <div className="flex items-center gap-3">
-              {(currentUser?.coinBalance ?? 0) > 1000 && (
-                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-lg">
-                  <Award className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-sm text-indigo-900 dark:text-indigo-400">
-                    {(currentUser?.coinBalance ?? 0) > 5000 ? 'Platinum' : 'Gold'}
+              {currentUser && (
+                <div className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                  (currentUser.coinBalance ?? 0) > 5000 
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 dark:border-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.15)]'
+                    : (currentUser.coinBalance ?? 0) > 1000
+                    ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-900/40 text-amber-700 dark:text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.12)]'
+                    : 'bg-[#f4eadf] dark:bg-[#3a2418]/45 border border-[#b47a48]/40 dark:border-[#8a5a35]/45 text-[#6f4528] dark:text-[#d2a06f] shadow-[0_0_8px_rgba(111,69,40,0.08)]'
+                }`}>
+                  <Award className={`w-4 h-4 ${
+                    (currentUser.coinBalance ?? 0) > 5000 
+                      ? 'text-indigo-600 dark:text-indigo-400' 
+                      : (currentUser.coinBalance ?? 0) > 1000 
+                      ? 'text-amber-500' 
+                      : 'text-[#8a5a35] dark:text-[#d2a06f]'
+                  }`} />
+                  <span className="text-xs font-black uppercase tracking-wider">
+                    {(currentUser.coinBalance ?? 0) > 5000 ? 'Platinum' : (currentUser.coinBalance ?? 0) > 1000 ? 'Gold' : 'Bronze'}
                   </span>
                 </div>
               )}
@@ -306,7 +318,7 @@ export function Header({ onProfileClick, onMobileMenuClick, onSearch }: HeaderPr
                   className="flex items-center gap-2 lg:gap-3 hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors"
                 >
                   <div className="hidden lg:block text-right mr-2">
-                    <p className="text-sm text-slate-900 dark:text-white relative z-10 font-bold">{currentUser?.email.split('@')[0] || 'Guest'}</p>
+                    <p className="text-sm text-slate-900 dark:text-white relative z-10 font-bold">{currentUser?.fullName || currentUser?.email.split('@')[0] || 'Guest'}</p>
                     <div className="flex flex-col items-end">
                       {/* FR-ST-06: Display the user's enrolled academic Department on the dashboard navigation bar */}
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-tight">{currentUser?.departmentName || 'General'}</p>
