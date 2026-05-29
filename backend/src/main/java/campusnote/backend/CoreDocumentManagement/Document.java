@@ -64,6 +64,9 @@ public class Document {
     @Column(name = "thumbnail_path")
     private String thumbnailPath;
 
+    @Column(name = "ai_feedback")
+    private String aiFeedback;
+
     @ManyToMany
     @JoinTable(
         name = "document_likes",

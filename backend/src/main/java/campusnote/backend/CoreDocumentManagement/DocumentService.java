@@ -243,6 +243,7 @@ public class DocumentService {
         dto.setThumbnailUrl("/api/documents/" + doc.getId() + "/thumbnail");
         dto.setReportCount(doc.getReportCount() != null ? doc.getReportCount() : 0);
         dto.setEcts(doc.getCourse() != null ? doc.getCourse().getEcts() : null);
+        dto.setAiFeedback(doc.getAiFeedback());
 
         if (currentUserEmail != null) {
             dto.setLiked(doc.getLikedByUsers().stream().anyMatch(u -> u.getEmail().equals(currentUserEmail)));

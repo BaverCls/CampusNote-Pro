@@ -37,4 +37,5 @@ public class DocumentDTO {
     private Integer reportCount;
     private boolean liked;
     private Integer ects;
+    private String aiFeedback;
 }

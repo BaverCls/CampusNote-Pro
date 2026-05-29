@@ -97,7 +97,7 @@ export function MobileNav({ isOpen, onClose, activeItem = 'Dashboard', onProfile
           </button>
 
           <div className="text-slate-400 text-sm">
-            <p>Version 2.1.0</p>
+            <p>Beta Version 1.3.0</p>
             <p className="mt-1">© 2026 CampusNote</p>
           </div>
         </div>

@@ -22,6 +22,7 @@ export interface NoteDocument {
   reportCount?: number;
   liked?: boolean;
   ects?: number;
+  aiFeedback?: string;
 }
 
 export interface UploadedDocument {

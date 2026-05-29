@@ -155,7 +155,13 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
                     {doc.courseCode} - {doc.courseName || 'Unknown course'}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    {statusDetails.description}
+                    {doc.status === 'REJECTED' && doc.aiFeedback ? (
+                      <span className="text-red-500 dark:text-red-400 font-semibold">
+                        Reason: {doc.aiFeedback}
+                      </span>
+                    ) : (
+                      statusDetails.description
+                    )}
                   </p>
                 </div>
               </div>
@@ -166,9 +172,14 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
                     {statusDetails.label}
                   </span>
                 </div>
+                {(doc.status === 'PUBLISHED' || doc.status === 'REJECTED') && (
+                  <span className={`text-[10px] font-black ${doc.status === 'PUBLISHED' ? 'text-indigo-600 dark:text-indigo-400' : 'text-red-500 dark:text-red-400'}`}>
+                    AI Score: {doc.score != null ? Math.round(doc.score) : 0}/100
+                  </span>
+                )}
                 {doc.status === 'PUBLISHED' && (
                   <span className="text-[9px] font-bold text-slate-400">
-                    +{doc.ects ? doc.ects * 10 : 0} CampusCoins
+                    {doc.ects != null && doc.ects > 0 ? `+${doc.ects * 10} CampusCoins` : 'CampusCoins pending'}
                   </span>
                 )}
               </div>

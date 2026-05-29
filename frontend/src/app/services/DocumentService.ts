@@ -36,6 +36,8 @@ interface DocumentApiDTO {
   likeCount?: number;
   reportCount?: number;
   liked?: boolean;
+  ects?: number;
+  aiFeedback?: string;
 }
 
 interface ApiActionResponse {
@@ -77,6 +79,8 @@ const toNoteDocument = (doc: DocumentApiDTO): NoteDocument => ({
   thumbnailUrl: resolveApiResourceUrl(doc.thumbnailUrl),
   reportCount: doc.reportCount ?? 0,
   liked: doc.liked,
+  ects: doc.ects,
+  aiFeedback: doc.aiFeedback,
 });
 
 export const DocumentService = {
