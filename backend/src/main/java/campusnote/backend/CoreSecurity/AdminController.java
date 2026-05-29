@@ -169,6 +169,18 @@ public class AdminController {
                 user.setYear(year);
             }
 
+            if (updateData.getCoinBalance() != null) {
+                int coins = updateData.getCoinBalance();
+                user.setCoinBalance(coins);
+                String rankName = "BRONZE";
+                if (coins >= 1000) {
+                    rankName = "PLATINUM";
+                } else if (coins >= 500) {
+                    rankName = "GOLD";
+                }
+                user.setRank(rankName);
+            }
+
             User saved = userRepository.save(user);
             logAction("UPDATE_USER_ACADEMIC_INFO", getAdminEmail(session), "User ID: " + id);
             return ResponseEntity.ok(convertToDTO(saved));

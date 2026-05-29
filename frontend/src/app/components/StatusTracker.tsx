@@ -167,7 +167,9 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
                   </span>
                 </div>
                 {doc.status === 'PUBLISHED' && (
-                  <span className="text-[9px] font-bold text-slate-400">+10 CampusCoins</span>
+                  <span className="text-[9px] font-bold text-slate-400">
+                    +{doc.ects ? doc.ects * 10 : 0} CampusCoins
+                  </span>
                 )}
               </div>
             </div>

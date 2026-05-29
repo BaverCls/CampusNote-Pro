@@ -12,6 +12,12 @@ export function AdminCourseManager() {
   const [faculties, setFaculties] = useState<FacultyMeta[]>([]);
   const [departments, setDepartments] = useState<DepartmentMeta[]>([]);
   
+  // Search & Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterFacultyId, setFilterFacultyId] = useState<string>('');
+  const [filterDepartmentId, setFilterDepartmentId] = useState<number>(0);
+  const [filterYear, setFilterYear] = useState<number>(0);
+  
   // Form State
   const [formData, setFormData] = useState({
     name: '',
@@ -104,6 +110,27 @@ export function AdminCourseManager() {
   };
 
   const filteredDepts = departments.filter(d => String(d.facultyId) === formData.facultyId);
+
+  const filteredCourses = courses.filter(course => {
+    const matchesSearch = 
+      (course.code?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      (course.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+      
+    const matchesFaculty = filterFacultyId 
+      ? (course.faculty?.id === Number(filterFacultyId) || 
+         departments.find(d => d.id === course.department?.id)?.facultyId === Number(filterFacultyId))
+      : true;
+
+    const matchesDept = filterDepartmentId 
+      ? course.department?.id === filterDepartmentId 
+      : true;
+
+    const matchesYear = filterYear 
+      ? course.year === filterYear 
+      : true;
+
+    return matchesSearch && matchesFaculty && matchesDept && matchesYear;
+  });
 
   return (
     <div className="space-y-6">
@@ -245,62 +272,124 @@ export function AdminCourseManager() {
           </form>
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-          {loading ? (
-            <div className="py-20 flex flex-col items-center justify-center text-slate-400">
-              <Loader2 className="w-10 h-10 animate-spin mb-4" />
-              <p className="font-medium">Loading courses...</p>
+        <div className="space-y-4">
+          {/* Search & Filters Pane */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800">
+            {/* Search Input */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Search Course</label>
+              <input
+                type="text"
+                placeholder="Search by code or name..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-indigo-600 dark:text-white text-xs"
+              />
             </div>
-          ) : courses.length === 0 ? (
-            <div className="py-20 text-center text-slate-500 italic">No courses created yet.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Code</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Course Name</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">ECTS</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Academic Unit</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                  {courses.map(course => (
-                    <tr key={course.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4 text-sm font-black text-indigo-600">{course.code}</td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-bold text-slate-900 dark:text-white">{course.name}</div>
-                        <div className="text-[10px] text-slate-400 font-medium uppercase">Year {course.year} • Semester {course.semester}</div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="px-2 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 rounded text-xs font-bold">
-                          {course.ects}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
-                        {course.department?.name || 'Unknown Dept'}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleEdit(course)}
-                          className="p-2 text-slate-300 hover:text-indigo-600 transition-colors"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(course.id)}
-                          className="p-2 text-slate-300 hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
+            
+            {/* Faculty Filter */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Faculty</label>
+              <select
+                value={filterFacultyId}
+                onChange={e => {
+                  setFilterFacultyId(e.target.value);
+                  setFilterDepartmentId(0);
+                }}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-indigo-600 dark:text-white text-xs"
+              >
+                <option value="">All Faculties</option>
+                {faculties.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+            </div>
+
+            {/* Department Filter */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Department</label>
+              <select
+                value={filterDepartmentId}
+                onChange={e => setFilterDepartmentId(Number(e.target.value))}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-indigo-600 dark:text-white text-xs"
+              >
+                <option value={0}>All Departments</option>
+                {departments
+                  .filter(d => !filterFacultyId || String(d.facultyId) === filterFacultyId)
+                  .map(d => <option key={d.id} value={d.id}>{d.name}</option>)
+                }
+              </select>
+            </div>
+
+            {/* Year Filter */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Year</label>
+              <select
+                value={filterYear}
+                onChange={e => setFilterYear(Number(e.target.value))}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-indigo-600 dark:text-white text-xs"
+              >
+                <option value={0}>All Years</option>
+                {[1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            {loading ? (
+              <div className="py-20 flex flex-col items-center justify-center text-slate-400">
+                <Loader2 className="w-10 h-10 animate-spin mb-4" />
+                <p className="font-medium">Loading courses...</p>
+              </div>
+            ) : filteredCourses.length === 0 ? (
+              <div className="py-20 text-center text-slate-500 italic">No courses found matching filters.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Code</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Course Name</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">ECTS</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Academic Unit</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                    {filteredCourses.map(course => (
+                      <tr key={course.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="px-6 py-4 text-sm font-black text-indigo-600">{course.code}</td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-bold text-slate-900 dark:text-white">{course.name}</div>
+                          <div className="text-[10px] text-slate-400 font-medium uppercase">Year {course.year} • Semester {course.semester}</div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="px-2 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 rounded text-xs font-bold">
+                            {course.ects}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
+                          {course.department?.name || 'Unknown Dept'}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => handleEdit(course)}
+                            className="p-2 text-slate-300 hover:text-indigo-600 transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(course.id)}
+                            className="p-2 text-slate-300 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

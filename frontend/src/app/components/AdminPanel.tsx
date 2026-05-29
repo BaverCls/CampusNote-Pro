@@ -56,7 +56,7 @@ export function AdminPanel() {
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
   const [aiThreshold, setAiThreshold] = useState(80);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
-  const [selectedUserEdit, setSelectedUserEdit] = useState({ facultyId: '', departmentId: '', year: '' });
+  const [selectedUserEdit, setSelectedUserEdit] = useState({ facultyId: '', departmentId: '', year: '', coinBalance: '0' });
   const [faculties, setFaculties] = useState<FacultyMeta[]>([]);
   const [departments, setDepartments] = useState<DepartmentMeta[]>([]);
   const [documentStatusFilter, setDocumentStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'PENDING' | 'FLAGGED' | 'REJECTED'>('ALL');
@@ -87,6 +87,7 @@ export function AdminPanel() {
       facultyId: user.facultyId ? String(user.facultyId) : '',
       departmentId: user.departmentId ? String(user.departmentId) : '',
       year: user.year ? String(user.year) : '',
+      coinBalance: user.coinBalance !== undefined ? String(user.coinBalance) : '0',
     });
   };
 
@@ -319,21 +320,23 @@ export function AdminPanel() {
     const facultyId = Number(selectedUserEdit.facultyId);
     const departmentId = Number(selectedUserEdit.departmentId);
     const year = Number(selectedUserEdit.year);
+    const coinBalance = Number(selectedUserEdit.coinBalance);
 
-    if (!Number.isInteger(facultyId) || facultyId <= 0 || !Number.isInteger(departmentId) || departmentId <= 0 || !Number.isInteger(year) || year < 1 || year > 4) {
-      toast.error('Select a faculty, department, and year.');
+    if (!Number.isInteger(facultyId) || facultyId <= 0 || !Number.isInteger(departmentId) || departmentId <= 0 || !Number.isInteger(year) || year < 1 || year > 4 || isNaN(coinBalance)) {
+      toast.error('Select a faculty, department, year, and a valid coin amount.');
       return;
     }
 
     setIsUpdatingUser(true);
-    const updated = await UserService.updateAdminUser(selectedUser.id, { facultyId, departmentId, year });
+    const updated = await UserService.updateAdminUser(selectedUser.id, { facultyId, departmentId, year, coinBalance });
     if (updated) {
-      toast.success('User academic info updated.');
+      toast.success('User info updated successfully.');
       setSelectedUser(updated);
       setSelectedUserEdit({
         facultyId: updated.facultyId ? String(updated.facultyId) : '',
         departmentId: updated.departmentId ? String(updated.departmentId) : '',
         year: updated.year ? String(updated.year) : '',
+        coinBalance: updated.coinBalance !== undefined ? String(updated.coinBalance) : '0',
       });
       await fetchAllData();
     } else {
@@ -928,7 +931,7 @@ export function AdminPanel() {
                   <p className="text-xs font-bold uppercase text-slate-400 mb-1">Faculty</p>
                   <select
                     value={selectedUserEdit.facultyId}
-                    onChange={(e) => setSelectedUserEdit({ facultyId: e.target.value, departmentId: '', year: selectedUserEdit.year })}
+                    onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, facultyId: e.target.value, departmentId: '' })}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
                   >
                     <option value="">Select faculty</option>
@@ -966,7 +969,12 @@ export function AdminPanel() {
                 </div>
                 <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-3">
                   <p className="text-xs font-bold uppercase text-slate-400 mb-1">Coins</p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.coinBalance ?? 0} C</p>
+                  <input
+                    type="number"
+                    value={selectedUserEdit.coinBalance}
+                    onChange={(e) => setSelectedUserEdit({ ...selectedUserEdit, coinBalance: e.target.value })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  />
                 </div>
               </div>
             </div>

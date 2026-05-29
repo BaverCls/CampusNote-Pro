@@ -21,6 +21,7 @@ export interface NoteDocument {
   thumbnailUrl?: string;
   reportCount?: number;
   liked?: boolean;
+  ects?: number;
 }
 
 export interface UploadedDocument {

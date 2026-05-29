@@ -36,4 +36,5 @@ public class DocumentDTO {
     private String thumbnailUrl;
     private Integer reportCount;
     private boolean liked;
+    private Integer ects;
 }

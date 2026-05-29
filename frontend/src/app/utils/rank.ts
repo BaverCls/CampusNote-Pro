@@ -1,13 +1,8 @@
 export type CampusRank = 'BRONZE' | 'GOLD' | 'PLATINUM'
 
 export function getCampusRank(rank?: string, coinBalance = 0): CampusRank {
-  const normalized = rank?.trim().toUpperCase()
-  if (normalized === 'BRONZE' || normalized === 'GOLD' || normalized === 'PLATINUM') {
-    return normalized
-  }
-
-  if (coinBalance > 5000) return 'PLATINUM'
-  if (coinBalance > 1000) return 'GOLD'
+  if (coinBalance >= 1000) return 'PLATINUM'
+  if (coinBalance >= 500) return 'GOLD'
   return 'BRONZE'
 }
 

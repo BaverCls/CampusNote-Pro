@@ -68,7 +68,7 @@ export const UserService = {
     }
   },
 
-  async updateAdminUser(id: number, data: Pick<UserData, 'facultyId' | 'departmentId' | 'year'>): Promise<UserData | null> {
+  async updateAdminUser(id: number, data: Pick<UserData, 'facultyId' | 'departmentId' | 'year' | 'coinBalance'>): Promise<UserData | null> {
     if (!Number.isInteger(id) || id <= 0) {
       console.error('Admin User Update Error: invalid user id type');
       return null;
