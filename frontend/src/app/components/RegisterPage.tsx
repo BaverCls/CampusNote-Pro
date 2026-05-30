@@ -230,7 +230,7 @@ export function RegisterPage() {
                   className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all dark:text-white disabled:opacity-50"
                 >
                     <option value="">Select Department</option>
-                    {departments.filter(d => String(d.facultyId) === selectedFacultyId).map(d => (
+                    {departments.filter(d => String(d.facultyId) === selectedFacultyId && d.name !== 'Common Curriculum').map(d => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
                   </select>

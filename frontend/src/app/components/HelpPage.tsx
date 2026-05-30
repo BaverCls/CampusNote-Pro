@@ -71,7 +71,7 @@ export function HelpPage() {
             </HelpSection>
 
             <HelpSection icon={HelpCircle} title="Current prototype limitations">
-              External ML integration is planned. AWS S3 storage is planned. The current prototype uses the existing backend review and storage flow for the final demo.
+              CampusNote Pro uses a PyTorch-powered AI evaluation service with deterministic fallback scoring, and Cloudflare R2 object storage for secure PDF handling. Current limitations are focused on prototype-scale deployment and demo data.
             </HelpSection>
           </div>
         </div>

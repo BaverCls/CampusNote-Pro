@@ -92,7 +92,9 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
     setUploadError('');
 
     try {
-      const faculty = faculties.find(f => String(f.id) === selectedFacultyId)?.name || '';
+      const faculty = selectedFacultyId === 'common'
+        ? 'Common Curriculum'
+        : (faculties.find(f => String(f.id) === selectedFacultyId)?.name || '');
       const course = allCourses.find(c => c.id.toString() === selectedCourseId);
 
       const result = await DocumentService.uploadDocument({
@@ -178,8 +180,10 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
   if (!isOpen) return null;
 
   // Filter logic
-  const filteredDepartments = departments.filter(d => String(d.facultyId) === selectedFacultyId);
-  const filteredCourses = allCourses.filter(c => c.department?.id.toString() === selectedDeptId);
+  const filteredDepartments = departments.filter(d => String(d.facultyId) === selectedFacultyId && d.name !== 'Common Curriculum');
+  const filteredCourses = selectedFacultyId === 'common'
+    ? allCourses.filter(c => c.department?.name === 'Common Curriculum')
+    : allCourses.filter(c => c.department?.id.toString() === selectedDeptId);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -285,33 +289,49 @@ export function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
                     {f.name}
                   </button>
                 ))}
+                <button
+                  onClick={() => {
+                    setSelectedFacultyId('common');
+                    setSelectedDeptId('common');
+                    setSelectedCourseId('');
+                  }}
+                  className={`p-3 rounded-xl border text-sm font-medium transition-all flex flex-col items-center gap-2 ${
+                    selectedFacultyId === 'common'
+                      ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 ring-2 ring-indigo-600'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-indigo-300'
+                  }`}
+                >
+                  Common Curriculum
+                </button>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Department</label>
-              <select
-                value={selectedDeptId}
-                onChange={(e) => {
-                  setSelectedDeptId(e.target.value);
-                  setSelectedCourseId('');
-                }}
-                disabled={!selectedFacultyId}
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                <option value="">Choose Department</option>
-                {filteredDepartments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
+            {selectedFacultyId !== 'common' && (
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Department</label>
+                <select
+                  value={selectedDeptId}
+                  onChange={(e) => {
+                    setSelectedDeptId(e.target.value);
+                    setSelectedCourseId('');
+                  }}
+                  disabled={!selectedFacultyId}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <option value="">Choose Department</option>
+                  {filteredDepartments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            <div className="space-y-2">
+            <div className={`space-y-2 ${selectedFacultyId === 'common' ? 'md:col-span-2' : ''}`}>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Course</label>
               <select
                 value={selectedCourseId}
                 onChange={(e) => setSelectedCourseId(e.target.value)}
-                disabled={!selectedDeptId || loadingCourses}
+                disabled={(!selectedDeptId && selectedFacultyId !== 'common') || loadingCourses}
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 <option value="">{loadingCourses ? 'Loading courses...' : 'Choose Course'}</option>

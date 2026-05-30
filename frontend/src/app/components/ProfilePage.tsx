@@ -389,7 +389,7 @@ export function ProfilePage() {
                       className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none transition-all dark:text-white disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-900/50"
                     >
                       <option value="">Select Department</option>
-                      {departments.filter(d => String(d.facultyId) === editData.facultyId).map(d => (
+                      {departments.filter(d => String(d.facultyId) === editData.facultyId && d.name !== 'Common Curriculum').map(d => (
                         <option key={d.id} value={d.id}>{d.name}</option>
                       ))}
                     </select>

@@ -8,6 +8,8 @@ import campusnote.backend.LiaisonAI.LiaisonService;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -90,7 +92,16 @@ public class DocumentService {
         Document saved = documentRepository.save(doc);
         
         // FR-ST-23: Transmit to AI Ranking Service
-        liaisonService.triggerEvaluation(saved.getId());
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    liaisonService.triggerEvaluation(saved.getId());
+                }
+            });
+        } else {
+            liaisonService.triggerEvaluation(saved.getId());
+        }
         
         return saved;
     }

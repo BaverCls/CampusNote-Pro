@@ -170,9 +170,11 @@ export function DocumentCard({
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:shadow-lg transition-all group flex flex-col h-full">
       <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="text-slate-900 dark:text-white font-semibold mb-1 line-clamp-1">{title}</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{courseCode} - {courseName || 'Unknown course'}</p>
+        <div className="flex-1 min-h-[44px]">
+          <h3 className="text-slate-900 dark:text-white font-semibold mb-1 line-clamp-1" title={title}>{title}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1" title={`${courseCode} - ${courseName || 'Unknown course'}`}>
+            {courseCode} - {courseName || 'Unknown course'}
+          </p>
         </div>
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusConfig.classes}`}>
           <StatusIcon className="w-3.5 h-3.5" />
@@ -228,26 +230,55 @@ export function DocumentCard({
       </div>
 
       <div className="space-y-4 flex-1 flex flex-col">
-        {status === 'PUBLISHED' && aiScore !== undefined && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-lg">
-              <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-                AI Score: {aiScore}/100
+        <div className="min-h-[48px] flex flex-col justify-center">
+          {status === 'PUBLISHED' && (
+            <div className="flex items-center justify-between">
+              {aiScore !== undefined && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-lg">
+                  <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                    AI Score: {aiScore}/100
+                  </span>
+                </div>
+              )}
+
+              <button
+                onClick={handleDownload}
+                disabled={Boolean(loadingAction)}
+                className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm shadow-indigo-500/20 group/dl disabled:opacity-60 disabled:cursor-wait"
+                title="Download Document"
+              >
+                {loadingAction === 'download' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 group-hover/dl:scale-110 transition-transform" />}
+                <span className="text-xs font-bold">Download</span>
+              </button>
+            </div>
+          )}
+
+          {status === 'REJECTED' && (
+            <div className="px-3 py-2 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+                <span className="text-sm text-amber-700 dark:text-amber-400 italic">
+                  {reviewStatus || 'Rejected by manual review'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {(status === 'FLAGGED' || status === 'FAILED') && (
+            <div className="px-3 py-2 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-lg">
+              <span className="text-sm text-red-700 dark:text-red-400 italic">
+                Awaiting moderation review
               </span>
             </div>
-            
-            <button 
-              onClick={handleDownload}
-              disabled={Boolean(loadingAction)}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm shadow-indigo-500/20 group/dl disabled:opacity-60 disabled:cursor-wait"
-              title="Download Document"
-            >
-              {loadingAction === 'download' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 group-hover/dl:scale-110 transition-transform" />}
-              <span className="text-xs font-bold">Download</span>
-            </button>
-          </div>
-        )}
+          )}
+
+          {(status === 'DRAFT' || status === 'UNDER REVIEW') && (
+            <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+               <span className="text-sm text-slate-500 italic">{status === 'UNDER REVIEW' ? 'Liaison AI is reviewing this document' : 'Not yet submitted for review'}</span>
+            </div>
+          )}
+        </div>
 
         {actionFeedback && (
           <div className={`px-3 py-2 rounded-lg text-xs font-semibold ${
@@ -256,31 +287,6 @@ export function DocumentCard({
               : 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
           }`}>
             {actionFeedback.message}
-          </div>
-        )}
-
-        {status === 'REJECTED' && (
-          <div className="px-3 py-2 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-lg">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
-              <span className="text-sm text-amber-700 dark:text-amber-400 italic">
-                {reviewStatus || 'Rejected by manual review'}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {(status === 'FLAGGED' || status === 'FAILED') && (
-          <div className="px-3 py-2 bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-lg">
-            <span className="text-sm text-red-700 dark:text-red-400 italic">
-              Awaiting moderation review
-            </span>
-          </div>
-        )}
-
-        {(status === 'DRAFT' || status === 'UNDER REVIEW') && (
-          <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
-             <span className="text-sm text-slate-500 italic">{status === 'UNDER REVIEW' ? 'Liaison AI is reviewing this document' : 'Not yet submitted for review'}</span>
           </div>
         )}
 

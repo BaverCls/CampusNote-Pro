@@ -15,6 +15,12 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
   const currentUser = AuthService.getCurrentUser();
 
   const [statusFilter, setStatusFilter] = useState<'LATEST' | 'PUBLISHED' | 'REJECTED' | 'DRAFT'>('LATEST');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset currentPage to 1 when statusFilter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
 
   const fetchMyDocs = async () => {
     if (!currentUser) return;
@@ -85,13 +91,28 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
     }
   };
 
-  const filteredDocuments = documents.filter(doc => {
+  const sortedDocuments = [...documents].sort((a, b) => b.id - a.id);
+
+  const filteredDocuments = sortedDocuments.filter(doc => {
     if (statusFilter === 'LATEST') return true;
     if (statusFilter === 'PUBLISHED') return doc.status === 'PUBLISHED';
     if (statusFilter === 'REJECTED') return doc.status === 'REJECTED';
     if (statusFilter === 'DRAFT') return doc.status === 'DRAFT' || doc.status === 'UNDER REVIEW';
     return true;
   });
+
+  const itemsPerPage = 5;
+  const totalPages = Math.max(1, Math.ceil(filteredDocuments.length / itemsPerPage));
+
+  // Adjust currentPage if it goes out of bounds
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredDocuments.length, totalPages, currentPage]);
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedDocuments = filteredDocuments.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 transition-all shadow-sm">
@@ -137,55 +158,83 @@ export function StatusTracker({ isLoading: parentLoading }: StatusTrackerProps) 
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredDocuments.map((doc) => {
-            const statusDetails = getStatusDetails(doc.status);
-            const StatusIcon = statusDetails.icon;
-            return (
-            <div key={doc.id} className="flex items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30 transition-all group">
-              <div className="flex items-center gap-4">
-                <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm group-hover:scale-110 transition-transform">
-                  <FileText className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-900 dark:text-white font-bold truncate max-w-[150px]">
-                    {doc.title}
-                  </p>
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-tighter">
-                    {doc.courseCode} - {doc.courseName || 'Unknown course'}
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    {doc.status === 'REJECTED' && doc.aiFeedback ? (
-                      <span className="text-red-500 dark:text-red-400 font-semibold">
-                        Reason: {doc.aiFeedback}
+        <div className="space-y-4">
+          <div className="space-y-3">
+            {paginatedDocuments.map((doc) => {
+              const statusDetails = getStatusDetails(doc.status);
+              const StatusIcon = statusDetails.icon;
+              return (
+                <div key={doc.id} className="flex items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30 transition-all group">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm group-hover:scale-110 transition-transform">
+                      <FileText className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-900 dark:text-white font-bold truncate max-w-[150px]">
+                        {doc.title}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-tighter">
+                        {doc.courseCode} - {doc.courseName || 'Unknown course'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        {doc.status === 'REJECTED' && doc.aiFeedback ? (
+                          <span className="text-red-500 dark:text-red-400 font-semibold">
+                            Reason: {doc.aiFeedback}
+                          </span>
+                        ) : (
+                          statusDetails.description
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${statusDetails.classes}`}>
+                      <StatusIcon className={`w-4 h-4 ${statusDetails.iconClass}`} />
+                      <span className="text-[11px] font-black uppercase">
+                        {statusDetails.label}
                       </span>
-                    ) : (
-                      statusDetails.description
+                    </div>
+                    {(doc.status === 'PUBLISHED' || doc.status === 'REJECTED') && (
+                      <span className={`text-[10px] font-black ${doc.status === 'PUBLISHED' ? 'text-indigo-600 dark:text-indigo-400' : 'text-red-500 dark:text-red-400'}`}>
+                        AI Score: {doc.score != null ? Math.round(doc.score) : 0}/100
+                      </span>
                     )}
-                  </p>
+                    {doc.status === 'PUBLISHED' && (
+                      <span className="text-[9px] font-bold text-slate-400">
+                        {doc.ects != null && doc.ects > 0 ? `+${doc.ects * 10} CampusCoins` : 'CampusCoins pending'}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${statusDetails.classes}`}>
-                  <StatusIcon className={`w-4 h-4 ${statusDetails.iconClass}`} />
-                  <span className="text-[11px] font-black uppercase">
-                    {statusDetails.label}
-                  </span>
-                </div>
-                {(doc.status === 'PUBLISHED' || doc.status === 'REJECTED') && (
-                  <span className={`text-[10px] font-black ${doc.status === 'PUBLISHED' ? 'text-indigo-600 dark:text-indigo-400' : 'text-red-500 dark:text-red-400'}`}>
-                    AI Score: {doc.score != null ? Math.round(doc.score) : 0}/100
-                  </span>
-                )}
-                {doc.status === 'PUBLISHED' && (
-                  <span className="text-[9px] font-bold text-slate-400">
-                    {doc.ects != null && doc.ects > 0 ? `+${doc.ects * 10} CampusCoins` : 'CampusCoins pending'}
-                  </span>
-                )}
-              </div>
+              );
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
             </div>
-          );
-          })}
+          )}
         </div>
       )}
     </div>
